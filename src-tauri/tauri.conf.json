@@ -1,0 +1,65 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "枕控 PillowControl",
+  "version": "0.2.0",
+  "identifier": "org.pillowcontrol.desktop",
+  "build": {
+    "beforeDevCommand": "node scripts/build-frontend.mjs && node scripts/licenses.mjs",
+    "beforeBuildCommand": "node scripts/build-frontend.mjs && node scripts/licenses.mjs",
+    "frontendDist": "../tauri-dist/desktop-ui"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "枕控 PillowControl",
+        "width": 900,
+        "height": 820,
+        "minWidth": 680,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "capabilities": [
+        "desktop"
+      ],
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-src 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "shortDescription": "手机浏览器遥控 Windows 电脑",
+    "copyright": "Copyright 2026 PillowControl contributors",
+    "windows": {
+      "webviewInstallMode": {
+        "type": "offlineInstaller"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "SimpChinese",
+          "English"
+        ],
+        "displayLanguageSelector": true,
+        "compression": "zlib"
+      }
+    },
+    "resources": {
+      "../tauri-dist/THIRD_PARTY_LICENSES.txt": "THIRD_PARTY_LICENSES.txt",
+      "../LICENSE": "LICENSE",
+      "../README.md": "README.md",
+      "../docs/ACCEPTANCE.md": "docs/ACCEPTANCE.md",
+      "../docs/VALIDATION.md": "docs/VALIDATION.md",
+      "../docs/MIGRATION.md": "docs/MIGRATION.md",
+      "../docs/SECURITY.md": "docs/SECURITY.md",
+      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
+    },
+    "icon": [
+      "icons/icon.ico",
+      "icons/icon.png"
+    ]
+  }
+}

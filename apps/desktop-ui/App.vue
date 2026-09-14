@@ -3,15 +3,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import QRCode from "qrcode";
 import type { DesktopState } from "../../shared/protocol";
 import "./style.css";
-declare global {
-  interface Window {
-    pillow: {
-      state: () => Promise<DesktopState>;
-      action: (action: string, address?: string) => Promise<DesktopState>;
-      subscribe: (callback: (state: DesktopState) => void) => () => void;
-    };
-  }
-}
+import {desktop} from './bridge';
 const state = ref<DesktopState>({
   running: false,
   connected: false,
@@ -50,7 +42,7 @@ function update(value: DesktopState) {
 async function action(name: string) {
   busy.value = true;
   try {
-    const value = await window.pillow.action(name, selected.value);
+    const value = await desktop.action(name, selected.value);
     if (value) update(value);
   } catch (e) {
     state.value.error = String(e);
@@ -59,8 +51,8 @@ async function action(name: string) {
   }
 }
 onMounted(async () => {
-  update(await window.pillow.state());
-  unsubscribe = window.pillow.subscribe(update);
+  update(await desktop.state());
+  unsubscribe = desktop.subscribe(update);
 });
 onUnmounted(() => unsubscribe());
 </script>
@@ -72,7 +64,7 @@ onUnmounted(() => unsubscribe());
         <h1>枕控 PillowControl</h1>
         <p>手机在手，舒服遥控。</p>
       </div>
-      <span class="version">v0.1.0 · Windows</span>
+      <span class="version">v0.2.0 · Windows</span>
     </header>
     <section class="status">
       <span class="dot" :class="{ live: state.running }"></span>

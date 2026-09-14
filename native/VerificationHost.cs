@@ -11,6 +11,7 @@ using System.Web.Script.Serialization;
 class VerificationHost {
  [DllImport("user32.dll")]static extern bool SetForegroundWindow(IntPtr hwnd);
  [DllImport("user32.dll")]static extern IntPtr GetForegroundWindow();
+ [DllImport("user32.dll")]static extern uint GetClipboardSequenceNumber();
  static Form[] forms=new Form[3];static int clicks;static Button button;static JavaScriptSerializer json=new JavaScriptSerializer();static IntPtr notepad;
  [STAThread]static void Main(){Console.InputEncoding=new UTF8Encoding(false);Console.OutputEncoding=new UTF8Encoding(false);
   for(int i=0;i<3;i++){forms[i]=new Form{Text="PillowControl verification "+i,Size=new Size(420,260),StartPosition=FormStartPosition.Manual,Location=new Point(100+i*35,100+i*35)};forms[i].Show();}
@@ -19,6 +20,8 @@ class VerificationHost {
   Application.Run(forms[0]);
  }
  static object Execute(string command){
+  if(command=="clipboard-sequence")return GetClipboardSequenceNumber();
+  if(command=="focus-notepad"){if(notepad==IntPtr.Zero)throw new Exception("No test Notepad captured");return SetForegroundWindow(notepad);}
   if(command=="target"){foreach(var f in forms){f.BringToFront();SetForegroundWindow(f.Handle);}forms[0].TopMost=true;forms[0].BringToFront();SetForegroundWindow(forms[0].Handle);var p=button.PointToScreen(new Point(button.Width/2,button.Height/2));return new{x=p.X,y=p.Y,hwnd=forms[0].Handle.ToInt64()};}
   if(command=="untop"){forms[0].TopMost=false;return true;}
   if(command=="clicks"){forms[0].TopMost=false;return clicks;}

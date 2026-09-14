@@ -6,3 +6,6 @@ artifacts/
 *.log
 .playwright-cli/
 output/
+src-tauri/target/
+src-tauri/gen/
+tauri-dist/

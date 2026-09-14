@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop",
+  "description": "Only the bundled main window can read state and manage the remote service.",
+  "windows": ["main"],
+  "local": true,
+  "permissions": ["allow-desktop-state", "allow-desktop-action"]
+}

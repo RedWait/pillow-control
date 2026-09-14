@@ -1,27 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { Pairing, Limiter } from "../apps/desktop/security";
+
 import { commandSchema, clientSchema } from "../shared/protocol";
 describe("credentials and validation", () => {
-  it("pairs only with current code, rotates random tokens, revokes old tokens", () => {
-    const p = new Pairing();
-    expect(p.pair("invalid")).toBeNull();
-    expect(p.valid("a".repeat(64))).toBe(false);
-    const first = p.pair(p.code)!;
-    expect(first).toMatch(/^[a-f0-9]{64}$/);
-    expect(p.valid(first)).toBe(true);
-    const second = p.pair(p.code)!;
-    expect(second).not.toBe(first);
-    expect(p.valid(first)).toBe(false);
-    p.rotate();
-    expect(p.valid(second)).toBe(false);
-  });
-  it("bounds pairing attempts and recovers after expiry", () => {
-    const rate = new Limiter(2, 1000);
-    expect(rate.allow("ip", 0)).toBe(true);
-    expect(rate.allow("ip", 1)).toBe(true);
-    expect(rate.allow("ip", 2)).toBe(false);
-    expect(rate.allow("ip", 1001)).toBe(true);
-  });
   it.each([
     { type: "shell", command: "calc.exe" },
     { type: "move", dx: 501, dy: 0 },

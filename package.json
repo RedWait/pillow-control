@@ -1,34 +1,33 @@
 {
   "name": "pillow-control",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "枕控 PillowControl — Windows 局域网遥控器",
   "author": "PillowControl contributors",
   "license": "MIT",
   "private": true,
-  "main": "dist/main.cjs",
   "scripts": {
-    "native": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-native.ps1",
-    "build": "npm run native && node scripts/build.mjs",
-    "dev": "npm run build && node scripts/start.mjs",
-    "start": "node scripts/start.mjs",
+    "dev": "node scripts/tauri.mjs dev",
+    "start": "node scripts/run-app.mjs",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
-    "pack:dir": "npm run build && electron-builder --win dir --x64",
-    "pack": "npm run build && electron-builder --win portable nsis --x64",
-    "verify:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-verification.ps1 && node scripts/verify-windows.mjs"
+    "test:rust": "node scripts/cargo.mjs test --locked --lib --tests",
+    "check:rust": "node scripts/cargo.mjs check --locked",
+    "build:frontend": "node scripts/build-frontend.mjs && node scripts/licenses.mjs",
+    "build": "node scripts/tauri.mjs build --no-bundle",
+    "pack": "node scripts/tauri.mjs build && node scripts/package-portable.mjs",
+    "verify:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-verification.ps1 && node scripts/verify-tauri.mjs",
+    "verify:desktop": "node scripts/verify-desktop.mjs"
   },
   "dependencies": {
-    "ws": "8.21.3",
+    "@tauri-apps/api": "2.11.1",
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@tauri-apps/cli": "2.11.4",
     "@types/node": "^22.19.0",
     "@types/qrcode": "^1.5.6",
-    "@types/ws": "^8.18.1",
     "@vitejs/plugin-vue": "6.0.9",
-    "electron": "44.3.0",
-    "electron-builder": "26.15.3",
-    "esbuild": "0.28.1",
     "qrcode": "^1.5.4",
     "typescript": "~5.9.3",
     "vite": "8.3.0",
@@ -36,41 +35,7 @@
     "vue": "3.5.42",
     "vue-tsc": "^3.2.5"
   },
-  "build": {
-    "appId": "org.pillowcontrol.desktop",
-    "productName": "枕控 PillowControl",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "native/bin",
-        "to": "native",
-        "filter": [
-          "*.exe"
-        ]
-      }
-    ],
-    "win": {
-      "target": [
-        "portable",
-        "nsis"
-      ],
-      "requestedExecutionLevel": "asInvoker",
-      "signExecutable": false
-    },
-    "portable": {
-      "artifactName": "pillow-control-${version}-portable-${arch}.exe"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "artifactName": "pillow-control-${version}-setup-${arch}.exe"
-    }
+  "engines": {
+    "node": ">=22.12.0"
   }
 }
