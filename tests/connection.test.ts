@@ -1,0 +1,98 @@
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { useConnection } from "../apps/mobile/connection";
+class Socket {
+  static OPEN = 1;
+  static CLOSING = 2;
+  static sockets: Socket[] = [];
+  readyState = 0;
+  bufferedAmount = 0;
+  frames: any[] = [];
+  onopen = () => {};
+  onmessage = (event: { data: string }) => {};
+  onclose = (event: { code: number }) => {};
+  onerror = () => {};
+  constructor() {
+    Socket.sockets.push(this);
+  }
+  send(frame: string) {
+    this.frames.push(JSON.parse(frame));
+  }
+  open() {
+    this.readyState = 1;
+    this.onopen();
+    this.onmessage({ data: '{"kind":"ready"}' });
+  }
+  close(code = 1000) {
+    this.readyState = 3;
+    this.onclose({ code });
+  }
+}
+beforeEach(() => {
+  vi.useFakeTimers();
+  Socket.sockets = [];
+  vi.stubGlobal("WebSocket", Socket);
+  vi.stubGlobal("document", { hidden: false });
+  vi.stubGlobal("location", { protocol: "http:", host: "192.168.1.2:19827" });
+  const storage = new Map([["pillow-token", "a".repeat(64)]]);
+  vi.stubGlobal("localStorage", {
+    getItem: (k: string) => storage.get(k),
+    setItem: (k: string, v: string) => storage.set(k, v),
+    removeItem: (k: string) => storage.delete(k),
+  });
+});
+afterEach(() => {
+  vi.clearAllTimers();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+it("hiding releases and rejects pending actions, resuming sends only auth", async () => {
+  const remote = useConnection();
+  remote.resume();
+  const first = Socket.sockets[0];
+  first.open();
+  const pending = remote
+    .send({ type: "click", button: "left", count: 1 })
+    .catch((e) => e.message);
+  remote.suspend();
+  expect(await pending).toContain("不会自动重发");
+  expect(first.frames.at(-1).command).toEqual({ type: "release" });
+  remote.resume();
+  const second = Socket.sockets[1];
+  second.open();
+  expect(second.frames).toEqual([{ kind: "auth", token: "a".repeat(64) }]);
+  remote.suspend();
+});
+it("automatically reconnects after network loss without replay", async () => {
+  const remote = useConnection();
+  remote.resume();
+  Socket.sockets[0].open();
+  Socket.sockets[0].close(1006);
+  expect(remote.status.value).toBe("offline");
+  await vi.advanceTimersByTimeAsync(750);
+  expect(Socket.sockets).toHaveLength(2);
+  Socket.sockets[1].open();
+  expect(remote.status.value).toBe("connected");
+  expect(Socket.sockets[1].frames).toHaveLength(1);
+  remote.suspend();
+});
+it("a replaced tab does not fight the new controller with reconnect loops", async () => {
+  const remote = useConnection();
+  remote.resume();
+  Socket.sockets[0].open();
+  Socket.sockets[0].close(4001);
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(Socket.sockets).toHaveLength(1);
+  remote.resume();
+  expect(Socket.sockets).toHaveLength(2);
+  remote.suspend();
+});
+it("revocation clears credentials and does not retry", async () => {
+  const remote = useConnection();
+  remote.resume();
+  Socket.sockets[0].open();
+  Socket.sockets[0].close(4003);
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(remote.status.value).toBe("unpaired");
+  expect(localStorage.getItem("pillow-token")).toBeUndefined();
+  expect(Socket.sockets).toHaveLength(1);
+});
