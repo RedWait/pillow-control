@@ -53,6 +53,9 @@ impl Context {
     pub fn connected(&self) -> bool {
         self.active.lock().unwrap().is_some()
     }
+    pub fn code_remaining(&self) -> u64 {
+        self.pairing.lock().unwrap().remaining()
+    }
     pub fn code(&self) -> String {
         self.pairing.lock().unwrap().code.clone()
     }
@@ -264,7 +267,11 @@ async fn http(
                 }
                 Ok(None) => error(
                     StatusCode::UNAUTHORIZED,
-                    "配对码错误或已过期，请在电脑端重新配对",
+                    if pairing.expired() {
+                        "配对码已过期，请在电脑端重新配对"
+                    } else {
+                        "配对码不正确，请核对电脑上显示的 6 位数字"
+                    },
                 ),
                 Err(_) => error(
                     StatusCode::INTERNAL_SERVER_ERROR,

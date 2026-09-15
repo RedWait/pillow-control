@@ -55,7 +55,7 @@ onBeforeUnmount(unlock);
     <div class="sheet-surface">
       <header class="sheet-header">
         <h2 id="sheet-title">{{ title }}</h2>
-        <button class="close-button" aria-label="关闭面板" @click="emit('close')"><X aria-hidden="true" /><span>关闭</span></button>
+        <button class="close-button" aria-label="关闭" @click="emit('close')"><X aria-hidden="true" /></button>
       </header>
       <div class="sheet-content"><slot /></div>
     </div>

@@ -18,6 +18,8 @@ pub struct DesktopState {
     pub running: bool,
     pub connected: bool,
     pub code: String,
+    #[serde(rename = "codeRemaining")]
+    pub code_remaining: u64,
     pub addresses: Vec<Address>,
     pub selected: String,
     pub port: u16,
@@ -28,6 +30,7 @@ pub struct DesktopState {
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Action {
+    Hide,
     Start,
     Stop,
     Disconnect,
@@ -95,6 +98,11 @@ impl Service {
                 .as_ref()
                 .map(|s| s.context.code())
                 .unwrap_or_default(),
+            code_remaining: state
+                .server
+                .as_ref()
+                .map(|s| s.context.code_remaining())
+                .unwrap_or(0),
             addresses,
             selected: state.selected.clone(),
             port: 19827,
@@ -178,7 +186,7 @@ impl Service {
                     }
                     self.controller.revoke();
                 }
-                Action::Autostarton | Action::Autostartoff => {}
+                Action::Hide | Action::Autostarton | Action::Autostartoff => {}
                 Action::Pair | Action::Disconnect => {
                     let result = if let Some(server) = state.server.as_ref() {
                         server.context.revoke()

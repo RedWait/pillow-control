@@ -74,6 +74,7 @@ export interface DesktopState {
   running: boolean;
   connected: boolean;
   code: string;
+  codeRemaining: number;
   addresses: { name: string; address: string; virtual: boolean }[];
   selected: string;
   port: number;

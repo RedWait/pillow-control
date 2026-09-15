@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { Settings2, Volume1, Volume2, VolumeX, ChevronLeft, ChevronRight, Play, Pause, PanelsTopLeft, Keyboard, Ellipsis, Monitor, CornerDownLeft, ArrowUp, ArrowDown, Send, LogOut, Undo2 } from "@lucide/vue";
+import { Settings2, Volume1, Volume2, VolumeX, ChevronLeft, ChevronRight, Play, Pause, PanelsTopLeft, Keyboard, Ellipsis, Monitor, CornerDownLeft, ArrowUp, ArrowDown, Send, LogOut } from "@lucide/vue";
 import BottomSheet from "./BottomSheet.vue";
 import logo from "../../shared/assets/logo-ui.png";
 import { useConnection } from "./connection";
@@ -145,7 +145,7 @@ function finishSwitch(name: "confirm" | "cancel") {
   closePanel();
 }
 async function pair() {
-  if (pairing.value) return;
+  if (pairing.value || !/^[0-9]{6}$/.test(code.value) || status.value === "connecting") return;
   pairing.value = true;
   try { await remote.pair(code.value); } finally { pairing.value = false; }
 }
@@ -241,7 +241,7 @@ onUnmounted(() => {
     </form>
     <div v-else-if="panel === 'more'" class="more-grid">
       <button :disabled="!online" @click="action({ type: 'desktop' })"><Monitor aria-hidden="true" /><span>显示桌面</span></button>
-      <button :disabled="!online" @click="action({ type: 'key', key: 'escape' })"><Undo2 aria-hidden="true" /><span>Esc</span></button>
+      <button :disabled="!online" @click="action({ type: 'key', key: 'escape' })"><kbd class="esc-key" aria-hidden="true">esc</kbd><span>Esc</span></button>
       <button :disabled="!online" @click="action({ type: 'key', key: 'enter' })"><CornerDownLeft aria-hidden="true" /><span>回车</span></button>
       <button :disabled="!online" @click="action({ type: 'scroll', dy: -120 })"><ArrowUp aria-hidden="true" /><span>向上滚动</span></button>
       <button :disabled="!online" @click="action({ type: 'scroll', dy: 120 })"><ArrowDown aria-hidden="true" /><span>向下滚动</span></button>
@@ -262,8 +262,8 @@ onUnmounted(() => {
     </section>
     <form v-else-if="panel === 'pair'" class="pair-panel" @submit.prevent="pair">
       <label for="pair-code">输入电脑上显示的 6 位配对码</label>
-      <input id="pair-code" v-model="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" placeholder="000000" required data-initial-focus />
-      <p role="status">{{ message }}</p><button class="accent" :disabled="pairing" type="submit">{{ pairing ? '正在配对…' : '配对连接' }}</button>
+      <input id="pair-code" :value="code" @input="code = ($event.target as HTMLInputElement).value = ($event.target as HTMLInputElement).value.replace(/[^0-9]/g, '').slice(0, 6)" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" placeholder="6 位配对码" required data-initial-focus />
+      <p role="status">{{ message }}</p><button class="accent" :disabled="pairing || !/^[0-9]{6}$/.test(code) || status === 'connecting'" type="submit">{{ pairing ? '正在配对…' : '配对连接' }}</button>
     </form>
     <p v-if="feedback" class="panel-feedback" role="status">{{ feedback }}</p>
     <p v-if="!online && (panel === 'more' || panel === 'windows')" class="panel-feedback" role="status">{{ connectionLabel }}</p>

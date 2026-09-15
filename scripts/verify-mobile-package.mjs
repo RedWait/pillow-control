@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { resolve } from 'node:path';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 function processRpc(exe, args, options = {}) {
@@ -64,7 +64,8 @@ function processRpc(exe, args, options = {}) {
   };
 }
 
-const executable=resolve('release/pillow-control-0.2.0-portable-x64/pillow-control.exe');
+const version=JSON.parse(await readFile('package.json','utf8')).version;
+const executable=resolve(`release/pillow-control-${version}-portable-x64/pillow-control.exe`);
 const app=processRpc(executable,['--verify-server'],{cwd:process.env.TEMP,env:{...process.env,Path:process.env.SystemRoot+'\\System32;'+process.env.SystemRoot}});
 let browser;
 try {
@@ -84,10 +85,10 @@ try {
  await page.getByRole('button',{name:'键盘',exact:true}).click();
  await page.locator('#remote-text').fill('晚安，明天继续看。');
  await shot('keyboard');
- await page.getByRole('button',{name:'关闭面板'}).click();
+ await page.getByRole('button',{name:'关闭'}).click();
  await page.getByRole('button',{name:'更多',exact:true}).click();
  await shot('more');
- await page.getByRole('button',{name:'关闭面板'}).click();
+ await page.getByRole('button',{name:'关闭'}).click();
  await app.request({action:'revoke'});
  await page.getByRole('button',{name:'配对连接',exact:true}).waitFor();
  assert.deepEqual(errors,[]);

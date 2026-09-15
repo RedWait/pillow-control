@@ -114,3 +114,26 @@ it("a first authentication timeout is a failure, not a claimed prior connection"
   await vi.advanceTimersByTimeAsync(5000);
   expect(remote.connectionLabel.value).toBe("连接失败，点击重试");
 });
+
+it("pairing rejects incomplete codes and prevents duplicate requests, preserving leading zero", async () => {
+  let finish!: (value: unknown) => void;
+  const fetcher = vi.fn((_url: string, _options: { body: string }) => new Promise(resolve => { finish = resolve; }));
+  vi.stubGlobal("fetch", fetcher);
+  const remote = useConnection();
+  await remote.pair("123");
+  expect(fetcher).not.toHaveBeenCalled();
+  const request = remote.pair("012345");
+  await remote.pair("012345");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(fetcher.mock.calls[0][1].body).code).toBe("012345");
+  finish({ ok: false, json: async () => ({ error: "配对码不正确，请核对电脑上显示的 6 位数字" }) });
+  await request;
+  expect(remote.message.value).toContain("配对码不正确");
+});
+it("pairing network failure does not claim credentials expired", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+  const remote = useConnection();
+  await remote.pair("123456");
+  expect(remote.message.value).toContain("网络连接失败");
+  expect(remote.message.value).not.toContain("过期");
+});

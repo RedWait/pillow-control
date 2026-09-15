@@ -42,6 +42,14 @@ impl Pairing {
         self.expires = Instant::now() + Duration::from_secs(600);
         Ok(())
     }
+    pub fn remaining(&self) -> u64 {
+        self.expires
+            .saturating_duration_since(Instant::now())
+            .as_secs()
+    }
+    pub fn expired(&self) -> bool {
+        Instant::now() > self.expires
+    }
     pub fn pair(&mut self, code: &str) -> Result<Option<String>, String> {
         if Instant::now() > self.expires
             || code.len() != 6
@@ -129,7 +137,11 @@ mod tests {
     #[test]
     fn expiration() {
         let mut p = Pairing::new().unwrap();
+        assert!(!p.expired());
+        assert!(p.remaining() > 0 && p.remaining() <= 600);
         p.expires = Instant::now() - Duration::from_secs(1);
+        assert!(p.expired());
+        assert_eq!(p.remaining(), 0);
         assert!(p.pair(&p.code.clone()).unwrap().is_none());
     }
     #[test]

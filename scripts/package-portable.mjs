@@ -19,6 +19,7 @@ await copyFile(
 );
 for (const [source, target] of [
   ["LICENSE", "LICENSE"],
+  ...["README.en.md", "CONTRIBUTING.md", "docs/DEVELOPMENT.md", "docs/TROUBLESHOOTING.md", "docs/UI_POLISH.md"].map(path => [path, path]),
   ["README.md", "README.md"],
   ["THIRD_PARTY_NOTICES.md", "THIRD_PARTY_NOTICES.md"],
   ["docs/ACCEPTANCE.md", "docs/ACCEPTANCE.md"],
@@ -30,6 +31,8 @@ for (const [source, target] of [
   ["tauri-dist/THIRD_PARTY_LICENSES.txt", "THIRD_PARTY_LICENSES.txt"],
 ])
   await copyFile(source, join(dir, target));
+await mkdir(join(dir, "docs/assets"), { recursive: true });
+for (const asset of await readdir("docs/assets")) await copyFile(join("docs/assets", asset), join(dir, "docs/assets", asset));
 const installers = await readdir("src-tauri/target/release/bundle/nsis");
 const setup = installers.find(
   (n) => n.endsWith("-setup.exe") && n.includes(version),

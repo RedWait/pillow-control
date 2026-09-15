@@ -92,6 +92,10 @@ async fn desktop_action(
         }
         app.state::<StartupStatus>().0.lock().unwrap().clear();
     }
+    if matches!(action, Action::Hide) {
+        window.hide().map_err(|e| e.to_string())?;
+        return Ok(enrich(&app, service.snapshot().await));
+    }
     if matches!(action, Action::Quit) {
         service.shutdown().await;
         app.exit(0);
@@ -134,6 +138,27 @@ fn main() {
         .manage(StartupStatus::default())
         .invoke_handler(tauri::generate_handler![desktop_state, desktop_action])
         .setup(|app| {
+            // Fit the initial window into the usable desktop at its actual DPI.
+            // Do this once: restoring from the tray must preserve user resizing.
+            if let Some(window) = app.get_webview_window("main") {
+                if let Some(monitor) = window.current_monitor()? {
+                    let area = monitor
+                        .work_area()
+                        .size
+                        .to_logical::<f64>(monitor.scale_factor());
+                    let current = window
+                        .inner_size()?
+                        .to_logical::<f64>(window.scale_factor()?);
+                    let width = current.width.min((area.width - 32.0).max(320.0));
+                    let height = current.height.min((area.height - 64.0).max(300.0));
+                    window.set_min_size(Some(tauri::LogicalSize::new(
+                        480.0_f64.min(width),
+                        420.0_f64.min(height),
+                    )))?;
+                    window.set_size(tauri::LogicalSize::new(width, height))?;
+                    window.center()?;
+                }
+            }
             let store = pillow_control::preferences::Store::open(
                 app.path().app_local_data_dir()?.join("preferences.json"),
             )

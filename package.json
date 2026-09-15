@@ -1,6 +1,6 @@
 {
   "name": "pillow-control",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "枕控 PillowControl — Windows 局域网遥控器",
   "author": "PillowControl contributors",
   "license": "MIT",

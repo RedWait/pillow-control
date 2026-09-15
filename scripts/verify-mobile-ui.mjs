@@ -72,7 +72,7 @@ try {
   await page.getByRole('button',{name:'键盘',exact:true}).click();
   await page.locator('#remote-text').fill('晚安，明天继续看。');
   await screenshot({path:resolve(output,'keyboard.png')});
-  await page.getByRole('button',{name:'关闭面板'}).click();
+  await page.getByRole('button',{name:'关闭'}).click();
   await page.getByRole('button',{name:/键盘/}).click();
   assert.equal(await page.locator('#remote-text').inputValue(),'晚安，明天继续看。');
   await page.locator('#remote-text').dispatchEvent('compositionstart');
@@ -90,7 +90,7 @@ try {
   const visible=await page.evaluate(()=>{ const send=document.querySelector('.send-button').getBoundingClientRect(); const field=document.querySelector('#remote-text').getBoundingClientRect(); return {send:send.bottom,field:field.top}; });
   assert.ok(visible.send<=370 && visible.field>=40,JSON.stringify(visible));
   await screenshot({path:resolve(output,'keyboard-viewport-simulation.png')});
-  await page.getByRole('button',{name:'关闭面板'}).click();
+  await page.getByRole('button',{name:'关闭'}).click();
   await page.evaluate(()=>window.__shrinkViewport(650));
   await page.getByRole('button',{name:'更多',exact:true}).click();
   await screenshot({path:resolve(output,'more.png')});
@@ -108,14 +108,14 @@ try {
   assert.deepEqual(await page.evaluate(()=>window.__commands.filter(c=>c.type==='switch').map(c=>c.action)),['next','next','previous','confirm']);
   await page.getByRole('button',{name:'设置',exact:true}).click();
   await screenshot({path:resolve(output,'settings.png')});
-  await page.getByRole('button',{name:'关闭面板'}).click();
+  await page.getByRole('button',{name:'关闭'}).click();
   // Cancel any pending tap before entering a sheet.
   const beforeTap=await page.evaluate(()=>window.__commands.filter(c=>c.type==='click').length);
   await page.locator('.touchpad').tap();
   await page.getByRole('button',{name:'更多',exact:true}).click();
   await page.waitForTimeout(320);
   assert.equal(await page.evaluate(()=>window.__commands.filter(c=>c.type==='click').length),beforeTap);
-  await page.getByRole('button',{name:'关闭面板'}).click();
+  await page.getByRole('button',{name:'关闭'}).click();
   // Network loss must disable controls; a failed retry must not masquerade as connected.
   await page.evaluate(()=>{window.__networkDown=true;window.__socket.close(1006);});
   await page.getByRole('button',{name:'连接已断开，正在重连…',exact:true}).waitFor();
@@ -147,4 +147,3 @@ try {
   await writeFile(resolve(output,'results.json'),JSON.stringify({mode:'Chromium mobile emulation; simulated transport and keyboard viewport; not phone hardware acceptance',sizes:results,checks:['control commands','composition guard','draft persistence','ack success/failure','visual viewport shrink','modal backdrop isolation','continuous window switching','disconnect disable','reconnect no replay','landscape','small-height scrolling'],errors},null,2));
   console.log(`Mobile UI checks passed; screenshots: ${output}`);
 } finally { await browser.close(); await new Promise(r=>server.close(r)); }
-

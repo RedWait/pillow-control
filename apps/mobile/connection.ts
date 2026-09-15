@@ -105,7 +105,7 @@ export function useConnection() {
       if (event.code === 4003) {
         saveToken("");
         status.value = "unpaired";
-        message.value = "凭证已失效，请重新配对";
+        message.value = "连接已过期，请输入电脑上的配对码";
         return;
       }
       if (event.code === 4001) {
@@ -128,7 +128,10 @@ export function useConnection() {
       message.value = "连接失败，请检查电脑服务、Wi-Fi 和防火墙";
     };
   }
+  let pairPending = false;
   async function pair(code: string) {
+    if (pairPending || !/^[0-9]{6}$/.test(code)) return;
+    pairPending = true;
     message.value = "正在配对…";
     try {
       const res = await fetch("/api/pair", {
@@ -145,7 +148,9 @@ export function useConnection() {
       phase.value = "initial";
       connect();
     } catch (e) {
-      message.value = e instanceof Error ? e.message : "连接失败";
+      message.value = e instanceof TypeError || (e instanceof Error && ["TimeoutError", "AbortError"].includes(e.name)) ? "网络连接失败，请检查电脑服务和 Wi-Fi 后重试" : e instanceof Error ? e.message : "配对失败，请重试";
+    } finally {
+      pairPending = false;
     }
   }
   function send(command: Command): Promise<void> {
