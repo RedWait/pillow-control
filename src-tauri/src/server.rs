@@ -118,6 +118,14 @@ impl Server {
         port: u16,
         controller: Arc<Controller>,
     ) -> Result<Self, String> {
+        Self::start_with_store(host, port, controller, crate::preferences::Store::memory()).await
+    }
+    pub async fn start_with_store(
+        host: std::net::Ipv4Addr,
+        port: u16,
+        controller: Arc<Controller>,
+        store: crate::preferences::SharedStore,
+    ) -> Result<Self, String> {
         let listener = tokio::net::TcpListener::bind((host, port))
             .await
             .map_err(|e| match e.kind() {
@@ -130,7 +138,7 @@ impl Server {
         let (tx, rx) = watch::channel(false);
         let context = Arc::new(Context {
             origin: format!("http://{address}"),
-            pairing: Mutex::new(Pairing::new()?),
+            pairing: Mutex::new(Pairing::with_store(store)?),
             limits: Mutex::new(Limits {
                 pair: Limiter::new(6, 60),
                 total: Limiter::new(30, 60),
@@ -165,7 +173,11 @@ impl Server {
         })
     }
     pub async fn stop(&mut self) {
-        let _ = self.context.revoke();
+        // Stop the active session without forgetting trusted credentials.
+        if let Some(session) = self.context.active.lock().unwrap().take() {
+            let _ = session.cancel.send(4000);
+        }
+        self.context.controller.revoke();
         let _ = self.shutdown.send(true);
         if let Some(mut task) = self.task.take() {
             if tokio::time::timeout(Duration::from_secs(3), &mut task)
@@ -289,7 +301,7 @@ async fn http(
     let asset = name.strip_prefix("assets/").is_some_and(|s| {
         s.bytes()
             .all(|b| b.is_ascii_alphanumeric() || b"_.-".contains(&b))
-            && [".js", ".css", ".svg", ".woff2"]
+            && [".js", ".css", ".svg", ".png", ".woff2"]
                 .iter()
                 .any(|ext| s.ends_with(ext))
     });
@@ -307,6 +319,8 @@ async fn http(
         "text/css"
     } else if name.ends_with(".svg") {
         "image/svg+xml"
+    } else if name.ends_with(".png") {
+        "image/png"
     } else {
         "font/woff2"
     };
@@ -364,7 +378,7 @@ async fn close(socket: &mut WebSocket, code: u16) {
 }
 async fn connection(mut socket: WebSocket, ctx: Arc<Context>) {
     let mut shutdown = ctx.shutdown.clone();
-    let first = tokio::select! { _=shutdown.changed()=>{close(&mut socket,4003).await;return;},message=tokio::time::timeout(Duration::from_secs(3),socket.recv())=>message};
+    let first = tokio::select! { _=shutdown.changed()=>{close(&mut socket,4000).await;return;},message=tokio::time::timeout(Duration::from_secs(3),socket.recv())=>message};
     let token = match first {
         Ok(Some(Ok(Message::Text(text)))) => match ClientMessage::parse(&text) {
             Ok(ClientMessage::Auth { token }) => token,
@@ -396,7 +410,8 @@ async fn connection(mut socket: WebSocket, ctx: Arc<Context>) {
     > = FuturesUnordered::new();
     loop {
         tokio::select! {
-            _=shutdown.changed()=>{close(&mut socket,4003).await;break;},
+            biased;
+            _=shutdown.changed()=>{close(&mut socket,4000).await;break;},
             _=cancelled.changed()=>{let code=*cancelled.borrow();close(&mut socket,if code==0{4001}else{code}).await;break;},
             _=heartbeat.tick()=>{if last_alive.elapsed()>Duration::from_millis(3500){close(&mut socket,4000).await;break;}},
             Some((sequence,result))=pending.next(),if !pending.is_empty()=>{let mut ack=serde_json::json!({"kind":"ack","id":sequence});if let Err(error)=result{ack["error"]=error.into();}

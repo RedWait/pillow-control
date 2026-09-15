@@ -46,6 +46,11 @@ impl axum::serve::Listener for LimitedListener {
         loop {
             match self.listener.accept().await {
                 Ok((stream, address)) => {
+                    // WebSocket acknowledgements are tiny and latency-sensitive.
+                    // Do not let Nagle hold them behind an unacknowledged packet.
+                    if stream.set_nodelay(true).is_err() {
+                        continue;
+                    }
                     if let Ok(permit) = self.slots.clone().try_acquire_owned() {
                         return (
                             LimitedStream {
@@ -105,5 +110,20 @@ impl AsyncWrite for LimitedStream {
     }
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Pin::new(&mut self.stream).poll_shutdown(cx)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::serve::Listener;
+
+    #[tokio::test]
+    async fn accepted_connections_disable_nagle() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let mut listener = LimitedListener::new(listener);
+        let (_, (accepted, _)) = tokio::join!(TcpStream::connect(address), listener.accept());
+        assert!(accepted.stream.nodelay().unwrap());
     }
 }

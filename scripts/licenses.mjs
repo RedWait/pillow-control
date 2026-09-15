@@ -34,7 +34,7 @@ async function js(name, parent = process.cwd()) {
   for (const dependency of Object.keys(p.dependencies || {}))
     await js(dependency, dir);
 }
-for (const name of ["vue", "qrcode", "@tauri-apps/api"]) await js(name);
+for (const name of ["vue", "qrcode", "@tauri-apps/api", "@lucide/vue"]) await js(name);
 const local = join(process.env.USERPROFILE || "", ".cargo", "bin", "cargo.exe");
 const metadata = JSON.parse(
   execFileSync(

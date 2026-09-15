@@ -39,12 +39,9 @@ header p {
 .brand-icon {
   width: 50px;
   height: 50px;
-  display: grid;
-  place-items: center;
-  border-radius: 15px;
-  background: #acd5cc;
-  color: #193e39;
-  font-size: 37px;
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 .version {
   margin-left: auto;
@@ -244,3 +241,6 @@ select:focus-visible {
   outline: 2px solid #a9dace;
   outline-offset: 3px;
 }
+
+.startup-setting { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+.startup-setting input { width: 18px; height: 18px; accent-color: #b0d9ca; }

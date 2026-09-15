@@ -6,6 +6,49 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
+use tauri_plugin_autostart::ManagerExt;
+#[derive(Default)]
+struct StartupStatus(std::sync::Mutex<String>);
+fn startup(app: &tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let run = winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER)
+        .open_subkey_with_flags(
+            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+            winreg::enums::KEY_SET_VALUE,
+        )
+        .map_err(|e| e.to_string())?;
+    if !enabled {
+        return match run.delete_value("pillow-control") {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(format!("无法关闭开机自启：{e}")),
+        };
+    }
+    let result = if enabled {
+        app.autolaunch().enable()
+    } else {
+        app.autolaunch().disable()
+    };
+    result.map_err(|e| format!("开机自启设置失败：{e}"))?;
+    // auto-launch 0.5 does not quote executable paths on Windows. Correct the
+    // fixed application entry so installation directories with spaces work.
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    run.set_value(
+        "pillow-control",
+        &format!("\"{}\" --autostart", exe.display()),
+    )
+    .map_err(|e| format!("无法保存自启路径：{e}"))
+}
+fn enrich(app: &tauri::AppHandle, mut state: DesktopState) -> DesktopState {
+    match app.autolaunch().is_enabled() {
+        Ok(enabled) => state.autostart = enabled,
+        Err(e) => state.error = format!("无法读取开机自启状态：{e}"),
+    }
+    let error = app.state::<StartupStatus>().0.lock().unwrap().clone();
+    if !error.is_empty() {
+        state.error = error;
+    }
+    state
+}
 fn local(window: &tauri::WebviewWindow) -> Result<(), String> {
     let url = window.url().map_err(|e| e.to_string())?;
     if window.label() == "main"
@@ -18,11 +61,12 @@ fn local(window: &tauri::WebviewWindow) -> Result<(), String> {
 }
 #[tauri::command]
 async fn desktop_state(
+    app: tauri::AppHandle,
     window: tauri::WebviewWindow,
     service: tauri::State<'_, Arc<Service>>,
 ) -> Result<DesktopState, String> {
     local(&window)?;
-    Ok(service.snapshot().await)
+    Ok(enrich(&app, service.snapshot().await))
 }
 #[tauri::command]
 async fn desktop_action(
@@ -33,11 +77,26 @@ async fn desktop_action(
     address: Option<String>,
 ) -> Result<DesktopState, String> {
     local(&window)?;
+    if matches!(action, Action::Autostarton | Action::Autostartoff) {
+        let enabled = matches!(action, Action::Autostarton);
+        let previous = app.autolaunch().is_enabled().map_err(|e| e.to_string())?;
+        startup(&app, enabled)?;
+        if let Err(e) = service
+            .store
+            .lock()
+            .unwrap()
+            .update(|p| p.autostart = Some(enabled))
+        {
+            let _ = startup(&app, previous);
+            return Err(e);
+        }
+        app.state::<StartupStatus>().0.lock().unwrap().clear();
+    }
     if matches!(action, Action::Quit) {
         service.shutdown().await;
         app.exit(0);
     }
-    Ok(service.action(action, address).await)
+    Ok(enrich(&app, service.action(action, address).await))
 }
 fn show(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -61,10 +120,25 @@ fn main() {
         return;
     }
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| show(app)))
+        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
+            if !args.iter().any(|a| a == "--autostart") {
+                show(app);
+            }
+        }))
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .app_name("pillow-control")
+                .args(["--autostart"])
+                .build(),
+        )
+        .manage(StartupStatus::default())
         .invoke_handler(tauri::generate_handler![desktop_state, desktop_action])
         .setup(|app| {
-            let service = Service::new().map_err(std::io::Error::other)?;
+            let store = pillow_control::preferences::Store::open(
+                app.path().app_local_data_dir()?.join("preferences.json"),
+            )
+            .map_err(std::io::Error::other)?;
+            let service = Service::new(store).map_err(std::io::Error::other)?;
             app.manage(service.clone());
             let show_item =
                 MenuItem::with_id(app, "show", "打开枕控 PillowControl", true, None::<&str>)?;
@@ -100,8 +174,35 @@ fn main() {
                     }
                 })
                 .build(app)?;
+            if !std::env::args().any(|a| a == "--autostart") {
+                show(app.handle());
+            }
+            let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 service.action(Action::Start, None).await;
+                let mut last = None;
+                let mut ticks = 0u32;
+                loop {
+                    if service.exiting.load(Ordering::SeqCst) {
+                        break;
+                    }
+                    let preference = service.store.lock().unwrap().get().autostart;
+                    if let Some(enabled) = preference {
+                        if last != Some(enabled) {
+                            let result = startup(&handle, enabled);
+                            *handle.state::<StartupStatus>().0.lock().unwrap() =
+                                result.err().unwrap_or_default();
+                            last = Some(enabled);
+                        }
+                    }
+                    if ticks % 5 == 0 && service.desired_running.load(Ordering::SeqCst) {
+                        if !service.snapshot().await.running {
+                            service.retry_start().await;
+                        }
+                    }
+                    ticks = ticks.wrapping_add(1);
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                }
             });
             Ok(())
         })

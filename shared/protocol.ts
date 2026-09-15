@@ -69,6 +69,8 @@ export const clientSchema = z.discriminatedUnion("kind", [
     .strict(),
 ]);
 export interface DesktopState {
+  autostart: boolean;
+  trusted: boolean;
   running: boolean;
   connected: boolean;
   code: string;

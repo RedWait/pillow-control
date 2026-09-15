@@ -8,7 +8,7 @@ use subtle::ConstantTimeEq;
 
 pub struct Pairing {
     pub code: String,
-    digest: Option<[u8; 32]>,
+    store: crate::preferences::SharedStore,
     expires: Instant,
 }
 fn random_code() -> Result<String, String> {
@@ -24,14 +24,20 @@ fn random_code() -> Result<String, String> {
 }
 impl Pairing {
     pub fn new() -> Result<Self, String> {
+        Self::with_store(crate::preferences::Store::memory())
+    }
+    pub fn with_store(store: crate::preferences::SharedStore) -> Result<Self, String> {
         Ok(Self {
             code: random_code()?,
-            digest: None,
+            store,
             expires: Instant::now() + Duration::from_secs(600),
         })
     }
     pub fn rotate(&mut self) -> Result<(), String> {
-        self.digest = None;
+        self.store
+            .lock()
+            .unwrap()
+            .update(|p| p.token_digest = None)?;
         self.code = random_code()?;
         self.expires = Instant::now() + Duration::from_secs(600);
         Ok(())
@@ -47,16 +53,33 @@ impl Pairing {
         getrandom::fill(&mut token).map_err(|e| e.to_string())?;
         let token = hex::encode(token);
         let next = random_code()?;
-        self.digest = Some(Sha256::digest(token.as_bytes()).into());
+        self.store.lock().unwrap().update(|p| {
+            p.token_digest = Some(hex::encode(Sha256::digest(token.as_bytes())));
+            // Honor an explicit opt-out; the first pairing enables silent login startup.
+            if p.autostart.is_none() {
+                p.autostart = Some(true);
+            }
+        })?;
         self.code = next;
         self.expires = Instant::now() + Duration::from_secs(600);
         Ok(Some(token))
     }
     pub fn valid(&self, token: &str) -> bool {
         valid_token_shape(token)
-            && self.digest.as_ref().is_some_and(|expected| {
-                bool::from(expected.ct_eq(&Sha256::digest(token.as_bytes())))
-            })
+            && self
+                .store
+                .lock()
+                .unwrap()
+                .get()
+                .token_digest
+                .as_ref()
+                .is_some_and(|expected| {
+                    bool::from(
+                        expected
+                            .as_bytes()
+                            .ct_eq(hex::encode(Sha256::digest(token.as_bytes())).as_bytes()),
+                    )
+                })
     }
 }
 pub struct Limiter {

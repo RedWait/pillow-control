@@ -16,9 +16,11 @@
     "build": "node scripts/tauri.mjs build --no-bundle",
     "pack": "node scripts/tauri.mjs build && node scripts/package-portable.mjs",
     "verify:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-verification.ps1 && node scripts/verify-tauri.mjs",
-    "verify:desktop": "node scripts/verify-desktop.mjs"
+    "verify:desktop": "node scripts/verify-desktop.mjs",
+    "verify:mobile": "npm run build:frontend && node scripts/verify-mobile-ui.mjs"
   },
   "dependencies": {
+    "@lucide/vue": "1.45.0",
     "@tauri-apps/api": "2.11.1",
     "zod": "4.6.5"
   },

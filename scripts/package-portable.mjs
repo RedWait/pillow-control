@@ -25,6 +25,8 @@ for (const [source, target] of [
   ["docs/VALIDATION.md", "docs/VALIDATION.md"],
   ["docs/MIGRATION.md", "docs/MIGRATION.md"],
   ["docs/SECURITY.md", "docs/SECURITY.md"],
+  ["docs/MOBILE_UI.md", "docs/MOBILE_UI.md"],
+  ["docs/AUTOCONNECT.md", "docs/AUTOCONNECT.md"],
   ["tauri-dist/THIRD_PARTY_LICENSES.txt", "THIRD_PARTY_LICENSES.txt"],
 ])
   await copyFile(source, join(dir, target));

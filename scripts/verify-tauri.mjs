@@ -106,7 +106,7 @@ try {
   await page.goto(ready.origin);
   await page.getByPlaceholder("000000").fill(ready.code);
   await page.getByRole("button", { name: "配对连接", exact: true }).click();
-  await page.getByText("已连接电脑", { exact: true }).waitFor();
+  await page.getByText("已连接", { exact: true }).waitFor();
   checks.mobilePairing = true;
   before = await app.request({ action: "probe" });
   assert(before.volume >= 0, "No audio output");
@@ -204,14 +204,14 @@ try {
   await page.evaluate(() => window.testSocket.close());
   await wait(150);
   checks.disconnectReleased = !(await app.request({ action: "probe" })).altHeld;
-  await page.getByText("已连接电脑", { exact: true }).waitFor();
+  await page.getByText("已连接", { exact: true }).waitFor();
   checks.autoReconnect = true;
   await page.reload();
-  await page.getByText("已连接电脑", { exact: true }).waitFor();
+  await page.getByText("已连接", { exact: true }).waitFor();
   checks.tokenReload = true;
   await fixture.request("focus-notepad");
   await wait(100);
-  await page.getByRole("button", { name: /输入文字/ }).click();
+  await page.getByRole("button", { name: /^键盘/ }).click();
   const textbox = page.locator("#remote-text");
   await textbox.fill("手机组词发送验证 ABC");
   await textbox.dispatchEvent("compositionstart");

@@ -68,10 +68,12 @@ it("automatically reconnects after network loss without replay", async () => {
   Socket.sockets[0].open();
   Socket.sockets[0].close(1006);
   expect(remote.status.value).toBe("offline");
+  expect(remote.connectionLabel.value).toBe("连接已断开，正在重连…");
   await vi.advanceTimersByTimeAsync(750);
   expect(Socket.sockets).toHaveLength(2);
   Socket.sockets[1].open();
   expect(remote.status.value).toBe("connected");
+  expect(remote.connectionLabel.value).toBe("已连接");
   expect(Socket.sockets[1].frames).toHaveLength(1);
   remote.suspend();
 });
@@ -82,6 +84,7 @@ it("a replaced tab does not fight the new controller with reconnect loops", asyn
   Socket.sockets[0].close(4001);
   await vi.advanceTimersByTimeAsync(10000);
   expect(Socket.sockets).toHaveLength(1);
+  expect(remote.connectionLabel.value).toBe("连接已被接管，点击重连");
   remote.resume();
   expect(Socket.sockets).toHaveLength(2);
   remote.suspend();
@@ -95,4 +98,19 @@ it("revocation clears credentials and does not retry", async () => {
   expect(remote.status.value).toBe("unpaired");
   expect(localStorage.getItem("pillow-token")).toBeUndefined();
   expect(Socket.sockets).toHaveLength(1);
+});
+it("reports a failed connection accurately and keeps controls offline", () => {
+  const remote = useConnection();
+  remote.resume();
+  Socket.sockets[0].onerror();
+  Socket.sockets[0].close(1006);
+  expect(remote.connectionLabel.value).toBe("连接失败，点击重试");
+  expect(remote.status.value).toBe("offline");
+  expect(remote.message.value).toContain("防火墙");
+});
+it("a first authentication timeout is a failure, not a claimed prior connection", async () => {
+  const remote = useConnection();
+  remote.resume();
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(remote.connectionLabel.value).toBe("连接失败，点击重试");
 });

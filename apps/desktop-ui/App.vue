@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import QRCode from "qrcode";
+import logo from "../../shared/assets/logo-ui.png";
 import type { DesktopState } from "../../shared/protocol";
 import "./style.css";
 import {desktop} from './bridge';
 const state = ref<DesktopState>({
   running: false,
+  autostart: false,
+  trusted: false,
   connected: false,
   code: "",
   addresses: [],
@@ -59,7 +62,7 @@ onUnmounted(() => unsubscribe());
 <template>
   <main>
     <header>
-      <div class="brand-icon">◒</div>
+      <img class="brand-icon" :src="logo" alt="" />
       <div>
         <h1>枕控 PillowControl</h1>
         <p>手机在手，舒服遥控。</p>
@@ -141,6 +144,12 @@ onUnmounted(() => unsubscribe());
       </section>
     </div>
     <section class="help">
+      <h3>自动连接与启动</h3>
+      <p>{{ state.trusted ? '已记住配对手机，重启后可自动连接。' : '首次配对后记住手机，并默认开启静默自启。' }}</p>
+      <label class="startup-setting"><input type="checkbox" :checked="state.autostart" :disabled="busy" @change="action(state.autostart ? 'autostartoff' : 'autostarton')" />开机自动启动（静默到托盘）</label>
+      <p>Windows 登录后生效；手动打开会显示窗口。关闭此设置不影响已保存的配对。</p>
+    </section>
+    <section class="help">
       <h3>连接不上？从这里检查</h3>
       <p>
         ① 手机连接家庭 Wi-Fi，电脑连接同一路由器。访客网络 / AP
@@ -164,7 +173,7 @@ onUnmounted(() => unsubscribe());
         >
       </div>
       <button
-        :disabled="!state.connected || busy"
+        :disabled="!state.trusted || busy"
         @click="action('disconnect')"
       >
         断开并撤销手机</button

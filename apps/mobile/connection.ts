@@ -1,10 +1,20 @@
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import type { Command } from "../../shared/protocol";
 export function useConnection() {
   const status = ref<"unpaired" | "connecting" | "connected" | "offline">(
     "unpaired",
   );
   const message = ref("输入电脑上的配对码，开始遥控");
+  const phase = ref<"initial" | "retrying" | "failed" | "paused" | "replaced">("initial");
+  const connectionLabel = computed(() => {
+    if (status.value === "connected") return "已连接";
+    if (status.value === "unpaired") return "点击配对";
+    if (phase.value === "replaced") return "连接已被接管，点击重连";
+    if (phase.value === "paused") return "连接已暂停，点击重连";
+    if (phase.value === "failed") return "连接失败，点击重试";
+    if (phase.value === "retrying") return "连接已断开，正在重连…";
+    return "正在连接…";
+  });
   let token = "";
   try {
     token = localStorage.getItem("pillow-token") || "";
@@ -64,6 +74,7 @@ export function useConnection() {
       if (data.kind === "ready") {
         clearTimeout(openTimeout);
         status.value = "connected";
+        phase.value = "initial";
         message.value = "已连接，可以遥控";
         attempt = 0;
         lastPong = Date.now();
@@ -99,16 +110,21 @@ export function useConnection() {
       }
       if (event.code === 4001) {
         suspended = true;
+        phase.value = "replaced";
         status.value = "offline";
         message.value = "另一页面已接管连接，点击重新连接可接管回来";
         return;
       }
+      if (status.value === "connecting" && phase.value === "initial" && !suspended) phase.value = "failed";
       status.value = token ? "offline" : "unpaired";
-      message.value = "连接已断开，旧操作已清空";
+      if (!suspended && !document.hidden && phase.value !== "failed") phase.value = "retrying";
+      message.value = phase.value === "failed" ? "连接失败，请检查电脑服务、Wi-Fi 和防火墙" : "连接已断开，旧操作已清空";
       if (token && !suspended && !document.hidden)
         retry = setTimeout(connect, Math.min(5000, 700 * 2 ** attempt++));
     };
     ws.onerror = () => {
+      if (socket !== ws) return;
+      phase.value = "failed";
       message.value = "连接失败，请检查电脑服务、Wi-Fi 和防火墙";
     };
   }
@@ -126,6 +142,7 @@ export function useConnection() {
       suspend();
       saveToken(result.token);
       suspended = false;
+      phase.value = "initial";
       connect();
     } catch (e) {
       message.value = e instanceof Error ? e.message : "连接失败";
@@ -153,6 +170,7 @@ export function useConnection() {
   }
   function suspend() {
     suspended = true;
+    phase.value = "paused";
     clearTimeout(retry);
     clearInterval(heartbeat);
     if (socket?.readyState === WebSocket.OPEN)
@@ -169,6 +187,7 @@ export function useConnection() {
   }
   function resume() {
     suspended = false;
+    if (phase.value === "paused" || phase.value === "replaced") phase.value = "initial";
     if (!socket || socket.readyState >= WebSocket.CLOSING) connect();
   }
   function forget() {
@@ -177,5 +196,5 @@ export function useConnection() {
     status.value = "unpaired";
     message.value = "已忘记本机凭证，可重新配对";
   }
-  return { status, message, pair, send, suspend, resume, forget };
+  return { status, message, connectionLabel, pair, send, suspend, resume, forget };
 }

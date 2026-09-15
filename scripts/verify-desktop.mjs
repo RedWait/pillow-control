@@ -61,7 +61,7 @@ try {
     "枕控 PillowControl",
   );
   checks.qrRendered = await page
-    .locator("img")
+    .locator('img:not(.brand-icon)')
     .evaluate((img) => img.complete && img.naturalWidth > 0);
   checks.unknownCommandDenied = await invoke("execute_shell", {
     command: "never-run",

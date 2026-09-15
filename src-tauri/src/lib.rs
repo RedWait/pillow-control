@@ -1,5 +1,6 @@
 pub mod control;
 pub mod network;
+pub mod preferences;
 pub mod protocol;
 pub mod security;
 pub mod server;

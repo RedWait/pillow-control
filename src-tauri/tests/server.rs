@@ -320,3 +320,57 @@ async fn takeover_and_malformed_commands_and_heartbeat() {
     s.stop().await;
     c.shutdown();
 }
+
+#[tokio::test]
+async fn saved_credential_authenticates_after_service_and_store_restart() {
+    use pillow_control::preferences::Store;
+    let path = std::env::temp_dir().join(format!(
+        "pillow-server-{}.json",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let (_, c, _) = fixture().await;
+    let mut first = Server::start_with_store(
+        std::net::Ipv4Addr::LOCALHOST,
+        0,
+        c.clone(),
+        Store::open(path.clone()).unwrap(),
+    )
+    .await
+    .unwrap();
+    let token = pair(&first).await;
+    let mut ws = socket(&first).await;
+    auth(&mut ws, &token).await;
+    first.stop().await;
+    closed(receive(&mut ws).await, 4000);
+    drop(first);
+    let mut second = Server::start_with_store(
+        std::net::Ipv4Addr::LOCALHOST,
+        0,
+        c.clone(),
+        Store::open(path.clone()).unwrap(),
+    )
+    .await
+    .unwrap();
+    let mut ws = socket(&second).await;
+    auth(&mut ws, &token).await;
+    second.context.revoke().unwrap();
+    closed(receive(&mut ws).await, 4003);
+    second.stop().await;
+    let mut third = Server::start_with_store(
+        std::net::Ipv4Addr::LOCALHOST,
+        0,
+        c.clone(),
+        Store::open(path.clone()).unwrap(),
+    )
+    .await
+    .unwrap();
+    let mut ws = socket(&third).await;
+    send(&mut ws, json!({"kind":"auth","token":token})).await;
+    closed(receive(&mut ws).await, 4003);
+    third.stop().await;
+    c.shutdown();
+    std::fs::remove_file(path).unwrap();
+}

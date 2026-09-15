@@ -16,7 +16,8 @@
         "width": 900,
         "height": 820,
         "minWidth": 680,
-        "minHeight": 600
+        "minHeight": 600,
+        "visible": false
       }
     ],
     "security": {
@@ -44,7 +45,10 @@
           "English"
         ],
         "displayLanguageSelector": true,
-        "compression": "zlib"
+        "compression": "zlib",
+        "installerIcon": "icons/installer.ico",
+        "uninstallerIcon": "icons/installer.ico",
+        "installerHooks": "installer-hooks.nsh"
       }
     },
     "resources": {
@@ -55,7 +59,9 @@
       "../docs/VALIDATION.md": "docs/VALIDATION.md",
       "../docs/MIGRATION.md": "docs/MIGRATION.md",
       "../docs/SECURITY.md": "docs/SECURITY.md",
-      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
+      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
+      "../docs/MOBILE_UI.md": "docs/MOBILE_UI.md",
+      "../docs/AUTOCONNECT.md": "docs/AUTOCONNECT.md"
     },
     "icon": [
       "icons/icon.ico",

@@ -22,6 +22,8 @@ pub struct DesktopState {
     pub selected: String,
     pub port: u16,
     pub error: String,
+    pub autostart: bool,
+    pub trusted: bool,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -31,6 +33,8 @@ pub enum Action {
     Disconnect,
     Pair,
     Quit,
+    Autostarton,
+    Autostartoff,
 }
 struct State {
     server: Option<Server>,
@@ -41,14 +45,18 @@ pub struct Service {
     state: Mutex<State>,
     pub controller: Arc<Controller>,
     pub exiting: AtomicBool,
+    pub store: crate::preferences::SharedStore,
+    pub desired_running: AtomicBool,
 }
 impl Service {
-    pub fn new() -> Result<Arc<Self>, String> {
+    pub fn new(store: crate::preferences::SharedStore) -> Result<Arc<Self>, String> {
         let controller = Controller::start(|| Ok(Box::new(WindowsControl::new()?)))?;
         let addresses = network::addresses().unwrap_or_default();
+        let saved = store.lock().unwrap().get().address;
         let selected = addresses
             .iter()
-            .find(|a| !a.virtual_adapter)
+            .find(|a| a.address == saved)
+            .or_else(|| addresses.iter().find(|a| !a.virtual_adapter))
             .map(|a| a.address.clone())
             .unwrap_or_default();
         Ok(Arc::new(Self {
@@ -59,6 +67,8 @@ impl Service {
             }),
             controller,
             exiting: AtomicBool::new(false),
+            store,
+            desired_running: AtomicBool::new(true),
         }))
     }
     pub async fn snapshot(&self) -> DesktopState {
@@ -89,14 +99,33 @@ impl Service {
             selected: state.selected.clone(),
             port: 19827,
             error: state.error.clone(),
+            autostart: false,
+            trusted: self.store.lock().unwrap().get().token_digest.is_some(),
         }
     }
     pub async fn action(&self, action: Action, address: Option<String>) -> DesktopState {
+        self.action_inner(action, address, false).await
+    }
+    pub async fn retry_start(&self) -> DesktopState {
+        self.action_inner(Action::Start, None, true).await
+    }
+    async fn action_inner(
+        &self,
+        action: Action,
+        address: Option<String>,
+        retry: bool,
+    ) -> DesktopState {
         {
             let mut state = self.state.lock().await;
             match action {
                 Action::Start => {
-                    if state.server.is_none() && !self.exiting.load(Ordering::SeqCst) {
+                    if !retry {
+                        self.desired_running.store(true, Ordering::SeqCst);
+                    }
+                    if state.server.is_none()
+                        && self.desired_running.load(Ordering::SeqCst)
+                        && !self.exiting.load(Ordering::SeqCst)
+                    {
                         let addresses = network::addresses().unwrap_or_default();
                         if let Some(address) = address {
                             if addresses.iter().any(|a| a.address == address) {
@@ -104,13 +133,35 @@ impl Service {
                             }
                         }
                         if !addresses.iter().any(|a| a.address == state.selected) {
+                            state.selected = addresses
+                                .iter()
+                                .find(|a| !a.virtual_adapter)
+                                .map(|a| a.address.clone())
+                                .unwrap_or_default();
+                        }
+                        if !addresses.iter().any(|a| a.address == state.selected) {
                             state.error = "没有可用的局域网 IPv4 地址，请选择网卡".into();
                         } else {
                             let host = state.selected.parse::<Ipv4Addr>().unwrap();
-                            match Server::start(host, 19827, self.controller.clone()).await {
+                            match Server::start_with_store(
+                                host,
+                                19827,
+                                self.controller.clone(),
+                                self.store.clone(),
+                            )
+                            .await
+                            {
                                 Ok(server) => {
                                     state.server = Some(server);
                                     state.error.clear();
+                                    if let Err(e) = self
+                                        .store
+                                        .lock()
+                                        .unwrap()
+                                        .update(|p| p.address = state.selected.clone())
+                                    {
+                                        state.error = e;
+                                    }
                                 }
                                 Err(error) => state.error = error,
                             }
@@ -118,6 +169,7 @@ impl Service {
                     }
                 }
                 Action::Stop | Action::Quit => {
+                    self.desired_running.store(false, Ordering::SeqCst);
                     if matches!(action, Action::Quit) {
                         self.exiting.store(true, Ordering::SeqCst);
                     }
@@ -126,11 +178,15 @@ impl Service {
                     }
                     self.controller.revoke();
                 }
+                Action::Autostarton | Action::Autostartoff => {}
                 Action::Pair | Action::Disconnect => {
-                    if let Some(server) = state.server.as_ref() {
-                        if let Err(error) = server.context.revoke() {
-                            state.error = error;
-                        }
+                    let result = if let Some(server) = state.server.as_ref() {
+                        server.context.revoke()
+                    } else {
+                        self.store.lock().unwrap().update(|p| p.token_digest = None)
+                    };
+                    if let Err(error) = result {
+                        state.error = error;
                     }
                 }
             }
