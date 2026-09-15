@@ -123,3 +123,5 @@ npm run pack    # 生成安装版、便携 ZIP 和校验文件
 贡献代码前建议先讨论较大改动；提交 PR 时说明变化及验证范围。请保留白名单控制、配对鉴权、断线释放和不重放旧操作的行为。见[贡献指南](CONTRIBUTING.md)。
 
 项目采用 [MIT 许可证](LICENSE)。依赖和分发素材的许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+如果枕控帮你少下了一次床，欢迎点个 ⭐，也欢迎分享给同样懒得起身的朋友。
