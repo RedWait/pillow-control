@@ -3,7 +3,7 @@ import { readFile, writeFile, mkdir, copyFile, readdir } from "node:fs/promises"
 import { existsSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { repo, stable, names, metadata, assertMetadata, hash } from "./update-release-lib.mjs";
+import { repo, stable, names, metadata, assertMetadata, hash, sourceFileHash } from "./update-release-lib.mjs";
 const [mode, notesPath] = process.argv.slice(2);
 if (process.platform !== "win32" || process.arch !== "x64") throw Error("Release packaging requires Windows x64");
 if (!["prepare", "publish"].includes(mode) || !notesPath) throw Error("Usage: update-release.mjs prepare|publish RELEASE_NOTES.md");
@@ -26,10 +26,12 @@ if (config.bundle.windows.webviewInstallMode.type !== "offlineInstaller" ||
     Object.keys(config.plugins.updater).some(k => k.startsWith("dangerous") && config.plugins.updater[k])) throw Error("Unexpected update/installer security configuration");
 const dir = resolve("release", "updates", tag);
 const cargoExe = join(process.env.USERPROFILE, ".cargo/bin/cargo.exe");
-function sourceDigest() {
+async function sourceSnapshot() {
   const files = run("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], { encoding: "utf8" }).split("\0").filter(Boolean).sort();
-  return Promise.all(files.map(async file => file + "\0" + hash(await readFile(file)))).then(items => hash(items.join("\n")));
+  return Object.fromEntries(await Promise.all(files.map(async file => [file, sourceFileHash(file, await readFile(file))])));
 }
+const snapshotDigest = snapshot => hash(Object.entries(snapshot).map(([file, digest]) => file + "\0" + digest).join("\n"));
+async function sourceDigest() { return snapshotDigest(await sourceSnapshot()); }
 async function verify() {
   const publicPath = join(dir, "updater-public.pub");
   await writeFile(publicPath, key + "\n");
@@ -39,11 +41,13 @@ async function verify() {
 if (mode === "prepare") {
   if (!process.env.TAURI_SIGNING_PRIVATE_KEY || process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD === undefined) throw Error("Set TAURI_SIGNING_PRIVATE_KEY (outside-repo path) and TAURI_SIGNING_PRIVATE_KEY_PASSWORD in this shell. Do not paste keys in chat.");
   if (existsSync(dir)) throw Error("Staging directory already exists; use a new version or inspect it manually. Nothing was overwritten.");
-  const sourceHash = await sourceDigest();
+  const before = await sourceSnapshot();
+  const sourceHash = snapshotDigest(before);
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, "source-before.json"), JSON.stringify(before, null, 2) + "\n");
   // createUpdaterArtifacts is enabled only for a signed release build.
   node(["scripts/tauri.mjs", "build", "--config", resolve("src-tauri/tauri.updater.conf.json")]);
   node(["scripts/package-portable.mjs"]);
-  await mkdir(dir, { recursive: true });
   const source = resolve("src-tauri/target/release/bundle/nsis");
   const candidates = (await readdir(source)).filter(f => f.endsWith("-setup.exe") && f.includes("_" + version + "_"));
   if (candidates.length !== 1) throw Error("Expected exactly one version-matching NSIS installer");
@@ -59,7 +63,11 @@ if (mode === "prepare") {
     manifest.push(hash(await readFile(join(dir, file))) + "  " + file);
   }
   await writeFile(join(dir, n.hashes), manifest.join("\n") + "\n");
-  if (await sourceDigest() !== sourceHash) throw Error("Source changed during packaging. Staging retained for review.");
+  const after = await sourceSnapshot();
+  if (snapshotDigest(after) !== sourceHash) {
+    const changed = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(file => before[file] !== after[file]);
+    throw Error("Source changed during packaging: " + changed.join(", ") + ". Staging retained for review.");
+  }
   await writeFile(join(dir, "source.json"), JSON.stringify({ sourceHash, version }));
   console.log("Prepared and signature-verified: " + dir + ". Nothing was published.");
 } else {

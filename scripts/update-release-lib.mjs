@@ -11,6 +11,12 @@ export function names(version) {
     portable: prefix + "-portable-x64.zip", hashes: prefix + "-SHA256SUMS.txt", metadata: "latest.json" };
 }
 export const hash = bytes => createHash("sha256").update(bytes).digest("hex");
+// Tauri may rewrite Cargo.toml with LF on Windows. Ignore only that
+// serialization difference; all other source and binary bytes stay exact.
+export function sourceFileHash(file, bytes) {
+  return hash(file === "src-tauri/Cargo.toml"
+    ? bytes.toString("utf8").replace(/\r\n/g, "\n") : bytes);
+}
 export function metadata(version, signature, notes, date = new Date().toISOString()) {
   stable(version);
   if (!signature.trim() || !Number.isFinite(Date.parse(date))) throw Error("Missing signature or invalid date");
