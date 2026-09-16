@@ -10,6 +10,9 @@ use tokio::sync::oneshot;
 pub trait Native: Send + 'static {
     fn execute(&mut self, command: &Command) -> Result<(), String>;
     fn release(&mut self) -> Result<(), String>;
+    fn end_session(&mut self) -> Result<(), String> {
+        self.release()
+    }
     fn probe(&mut self) -> Result<serde_json::Value, String> {
         Err("诊断不可用".into())
     }
@@ -21,6 +24,7 @@ type Reply = oneshot::Sender<Result<serde_json::Value, String>>;
 enum Work {
     Command(Command),
     Release,
+    EndSession,
     Probe,
     Restore(f32),
 }
@@ -71,7 +75,7 @@ impl Controller {
                 let mut q = worker_inner.queue.lock().unwrap();
                 if q.closing {
                     drop(q);
-                    let _ = native.release();
+                    let _ = native.end_session();
                     break;
                 }
                 if let Some(job) = q.jobs.pop_front() {
@@ -81,6 +85,7 @@ impl Controller {
                             last = Instant::now();
                             native.execute(&command).map(|_| serde_json::Value::Null)
                         }
+                        Work::EndSession => native.end_session().map(|_| serde_json::Value::Null),
                         Work::Release => native.release().map(|_| serde_json::Value::Null),
                         Work::Probe => native.probe(),
                         Work::Restore(value) => native
@@ -123,7 +128,7 @@ impl Controller {
         Self::clear(&mut q);
         q.session = session;
         q.jobs.push_front(Job {
-            work: Work::Release,
+            work: Work::EndSession,
             replies: vec![],
         });
         self.inner.wake.notify_one();
@@ -136,7 +141,7 @@ impl Controller {
         Self::clear(&mut q);
         q.session = 0;
         q.jobs.push_front(Job {
-            work: Work::Release,
+            work: Work::EndSession,
             replies: vec![],
         });
         self.inner.wake.notify_one();

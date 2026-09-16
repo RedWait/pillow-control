@@ -63,8 +63,12 @@ async fn disconnect_cancels_queued_clicks_and_old_disconnect_cannot_release_new_
             count: 1,
         },
     );
+    let shutdown = c.submit(1, Command::Shutdown { confirmed: true });
+    let lens = c.submit(1, Command::Magnifier { enabled: true });
     c.release_for(1);
     assert!(click.await.unwrap().is_err());
+    assert!(shutdown.await.unwrap().is_err());
+    assert!(lens.await.unwrap().is_err());
     c.activate(2);
     c.release_for(1);
     let new = c.submit(2, Command::Key { key: Key::Enter });
@@ -108,4 +112,53 @@ async fn coalesces_bounded_moves_and_rejects_overflow() {
     assert_eq!(rejected, 25);
     assert_eq!(calls.lock().unwrap()[2], Command::Move { dx: 500, dy: 1 });
     c.shutdown();
+}
+
+struct SessionNative(Arc<Mutex<Vec<&'static str>>>);
+impl Native for SessionNative {
+    fn execute(&mut self, _: &Command) -> Result<(), String> {
+        self.0.lock().unwrap().push("command");
+        Ok(())
+    }
+    fn release(&mut self) -> Result<(), String> {
+        self.0.lock().unwrap().push("release");
+        Ok(())
+    }
+    fn end_session(&mut self) -> Result<(), String> {
+        self.0.lock().unwrap().push("end-session");
+        Ok(())
+    }
+    fn probe(&mut self) -> Result<Value, String> {
+        Ok(json!(null))
+    }
+}
+#[tokio::test]
+async fn session_end_cleans_accessibility_resources_but_gesture_release_does_not() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let copy = events.clone();
+    let c = Controller::start(move || Ok(Box::new(SessionNative(copy)))).unwrap();
+    c.activate(1);
+    c.probe().await.unwrap();
+    c.submit(1, Command::Magnifier { enabled: true })
+        .await
+        .unwrap()
+        .unwrap();
+    c.submit(1, Command::Release {}).await.unwrap().unwrap();
+    assert_eq!(
+        *events.lock().unwrap(),
+        vec!["end-session", "command", "release"]
+    );
+    c.release_for(1);
+    c.probe().await.unwrap();
+    assert_eq!(events.lock().unwrap().last(), Some(&"end-session"));
+    c.shutdown();
+    assert_eq!(
+        events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|e| **e == "end-session")
+            .count(),
+        3
+    );
 }

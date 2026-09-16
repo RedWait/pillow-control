@@ -7,7 +7,18 @@ const emit = defineEmits<{ close: [] }>();
 const dialog = ref<HTMLDialogElement>();
 let returnFocus: HTMLElement | null = null;
 let previousOverflow = "";
-const backdropDown = ref(false);
+let backdropDown: { x: number; y: number; id: number } | null = null;
+function outside(e: PointerEvent) {
+  const r = dialog.value?.querySelector(".sheet-surface")?.getBoundingClientRect();
+  return !!r && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom);
+}
+function backdropStart(e: PointerEvent) { backdropDown = outside(e) ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null; }
+function backdropEnd(e: PointerEvent) {
+  const start = backdropDown; backdropDown = null;
+  if (start && start.id === e.pointerId && outside(e) && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 10) {
+    e.preventDefault(); e.stopPropagation(); emit("close");
+  }
+}
 let locked = false;
 
 function viewport() {
@@ -50,8 +61,7 @@ onBeforeUnmount(unlock);
 <template>
   <dialog ref="dialog" class="bottom-sheet" aria-labelledby="sheet-title"
     @cancel.prevent="emit('close')"
-    @pointerdown="backdropDown = $event.target === dialog"
-    @click="backdropDown && $event.target === dialog && emit('close')">
+    @pointerdown="backdropStart" @pointerup="backdropEnd" @pointercancel="backdropDown = null">
     <div class="sheet-surface">
       <header class="sheet-header">
         <h2 id="sheet-title">{{ title }}</h2>

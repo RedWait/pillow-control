@@ -23,7 +23,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("key"),
-      key: z.enum(["space", "left", "right", "up", "down", "enter", "escape"]),
+      key: z.enum(["space", "left", "right", "up", "down", "enter", "escape", "backspace"]),
     })
     .strict(),
   z
@@ -49,6 +49,8 @@ export const commandSchema = z.discriminatedUnion("type", [
         .refine((s) => !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(s)),
     })
     .strict(),
+  z.object({ type: z.literal("magnifier"), enabled: z.boolean() }).strict(),
+  z.object({ type: z.literal("shutdown"), confirmed: z.literal(true) }).strict(),
   z.object({ type: z.literal("release") }).strict(),
 ]);
 export type Command = z.infer<typeof commandSchema>;
@@ -69,6 +71,7 @@ export const clientSchema = z.discriminatedUnion("kind", [
     .strict(),
 ]);
 export interface DesktopState {
+  halo: { enabled: boolean; size: "small" | "medium" | "large" };
   autostart: boolean;
   trusted: boolean;
   running: boolean;

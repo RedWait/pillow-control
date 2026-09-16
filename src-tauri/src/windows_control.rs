@@ -22,15 +22,26 @@ use windows::{
 
 pub struct WindowsControl {
     alt: bool,
+    lens: Option<crate::magnifier::Lens>,
+    halo: crate::pointer_halo::Halo,
+    last_shutdown: Option<std::time::Instant>,
 }
 impl WindowsControl {
     pub fn new() -> Result<Self, String> {
+        Self::with_store(crate::preferences::Store::memory())
+    }
+    pub fn with_store(store: crate::preferences::SharedStore) -> Result<Self, String> {
         unsafe {
             CoInitializeEx(None, COINIT_MULTITHREADED)
                 .ok()
                 .map_err(|e| e.to_string())?;
         }
-        Ok(Self { alt: false })
+        Ok(Self {
+            alt: false,
+            halo: crate::pointer_halo::Halo::new(store),
+            lens: None,
+            last_shutdown: None,
+        })
     }
     fn key(vk: VIRTUAL_KEY, up: bool) -> INPUT {
         INPUT {
@@ -116,7 +127,13 @@ impl Native for WindowsControl {
             self.release()?;
         }
         match command {
-            Command::Move { dx, dy } => Self::send(&[Self::mouse(*dx, *dy, MOUSEEVENTF_MOVE, 0)]),
+            Command::Move { dx, dy } => {
+                Self::send(&[Self::mouse(*dx, *dy, MOUSEEVENTF_MOVE, 0)])?;
+                if *dx != 0 || *dy != 0 {
+                    self.halo.moved();
+                }
+                Ok(())
+            }
             Command::Click { button, count } => {
                 let (down, up) = if *button == Button::Left {
                     (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP)
@@ -142,6 +159,7 @@ impl Native for WindowsControl {
                 Key::Down => VK_DOWN,
                 Key::Enter => VK_RETURN,
                 Key::Escape => VK_ESCAPE,
+                Key::Backspace => VK_BACK,
             }),
             Command::Desktop {} => Self::send(&[
                 Self::key(VK_LWIN, false),
@@ -207,8 +225,34 @@ impl Native for WindowsControl {
                     }
                 }
             },
+            Command::Magnifier { enabled } => {
+                if *enabled && self.lens.is_none() {
+                    self.lens = Some(crate::magnifier::Lens::start()?);
+                }
+                if !enabled {
+                    self.lens = None;
+                }
+                Ok(())
+            }
+            Command::Shutdown { .. } => {
+                if self
+                    .last_shutdown
+                    .is_some_and(|t| t.elapsed().as_secs() < 30)
+                {
+                    return Err("关机请求已提交，请查看电脑".into());
+                }
+                crate::power::shutdown()?;
+                self.last_shutdown = Some(std::time::Instant::now());
+                Ok(())
+            }
             Command::Release {} => self.release(),
         }
+    }
+    fn end_session(&mut self) -> Result<(), String> {
+        let result = self.release();
+        self.lens = None;
+        self.halo.clear();
+        result
     }
     fn probe(&mut self) -> Result<serde_json::Value, String> {
         unsafe {
@@ -224,7 +268,7 @@ impl Native for WindowsControl {
                 muted = endpoint.GetMute().map(|v| v.as_bool()).unwrap_or(false);
             }
             Ok(
-                serde_json::json!({"x":p.x,"y":p.y,"foreground":hwnd.0 as usize,"title":String::from_utf16_lossy(&title[..n as usize]),"volume":volume,"muted":muted,"altHeld":self.alt,"inputSize":std::mem::size_of::<INPUT>()}),
+                serde_json::json!({"x":p.x,"y":p.y,"foreground":hwnd.0 as usize,"title":String::from_utf16_lossy(&title[..n as usize]),"volume":volume,"muted":muted,"altHeld":self.alt,"magnifier":self.lens.is_some(),"halo":self.halo.probe(),"inputSize":std::mem::size_of::<INPUT>()}),
             )
         }
     }

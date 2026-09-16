@@ -26,6 +26,7 @@ pub struct DesktopState {
     pub error: String,
     pub autostart: bool,
     pub trusted: bool,
+    pub halo: crate::preferences::HaloSettings,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -38,6 +39,11 @@ pub enum Action {
     Quit,
     Autostarton,
     Autostartoff,
+    Haloon,
+    Halooff,
+    Halosmall,
+    Halomedium,
+    Halolarge,
 }
 struct State {
     server: Option<Server>,
@@ -50,10 +56,13 @@ pub struct Service {
     pub exiting: AtomicBool,
     pub store: crate::preferences::SharedStore,
     pub desired_running: AtomicBool,
+    pub(crate) installing_update: AtomicBool,
 }
 impl Service {
     pub fn new(store: crate::preferences::SharedStore) -> Result<Arc<Self>, String> {
-        let controller = Controller::start(|| Ok(Box::new(WindowsControl::new()?)))?;
+        let input_store = store.clone();
+        let controller =
+            Controller::start(move || Ok(Box::new(WindowsControl::with_store(input_store)?)))?;
         let addresses = network::addresses().unwrap_or_default();
         let saved = store.lock().unwrap().get().address;
         let selected = addresses
@@ -72,6 +81,7 @@ impl Service {
             exiting: AtomicBool::new(false),
             store,
             desired_running: AtomicBool::new(true),
+            installing_update: AtomicBool::new(false),
         }))
     }
     pub async fn snapshot(&self) -> DesktopState {
@@ -90,6 +100,10 @@ impl Service {
             }
             state.error = "连接地址已变化，请重新选择网卡并启动遥控".into();
         }
+        let (preferences, halo_error) = {
+            let store = self.store.lock().unwrap();
+            (store.get(), store.halo_error.clone())
+        };
         DesktopState {
             running: state.server.is_some(),
             connected: state.server.as_ref().is_some_and(|s| s.context.connected()),
@@ -106,9 +120,14 @@ impl Service {
             addresses,
             selected: state.selected.clone(),
             port: 19827,
-            error: state.error.clone(),
+            error: if state.error.is_empty() {
+                halo_error
+            } else {
+                state.error.clone()
+            },
             autostart: false,
-            trusted: self.store.lock().unwrap().get().token_digest.is_some(),
+            trusted: preferences.token_digest.is_some(),
+            halo: preferences.halo,
         }
     }
     pub async fn action(&self, action: Action, address: Option<String>) -> DesktopState {
@@ -126,6 +145,7 @@ impl Service {
         {
             let mut state = self.state.lock().await;
             match action {
+                Action::Start if self.installing_update.load(Ordering::SeqCst) => {}
                 Action::Start => {
                     if !retry {
                         self.desired_running.store(true, Ordering::SeqCst);
@@ -185,6 +205,25 @@ impl Service {
                         server.stop().await;
                     }
                     self.controller.revoke();
+                }
+                Action::Haloon
+                | Action::Halooff
+                | Action::Halosmall
+                | Action::Halomedium
+                | Action::Halolarge => {
+                    use crate::preferences::HaloSize;
+                    let result = self.store.lock().unwrap().update(|p| match action {
+                        Action::Haloon => p.halo.enabled = true,
+                        Action::Halooff => p.halo.enabled = false,
+                        Action::Halosmall => p.halo.size = HaloSize::Small,
+                        Action::Halomedium => p.halo.size = HaloSize::Medium,
+                        Action::Halolarge => p.halo.size = HaloSize::Large,
+                        _ => unreachable!(),
+                    });
+                    match result {
+                        Ok(()) => state.error.clear(),
+                        Err(e) => state.error = e,
+                    }
                 }
                 Action::Hide | Action::Autostarton | Action::Autostartoff => {}
                 Action::Pair | Action::Disconnect => {

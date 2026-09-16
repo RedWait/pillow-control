@@ -10,7 +10,7 @@
   <a href="#preview">功能预览</a>
 </p>
 <p align="center">
-  <a href="https://github.com/RedWait/pillow-control/releases/tag/v0.2.1"><img src="https://img.shields.io/badge/release-v0.2.1-435e53" alt="已发布 v0.2.1"></a>
+  <a href="https://github.com/RedWait/pillow-control/releases/latest"><img src="https://img.shields.io/github/v/release/RedWait/pillow-control?color=435e53" alt="最新稳定版"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-555555" alt="MIT 许可证"></a>
   <img src="https://img.shields.io/badge/platform-Windows_x64-555555" alt="Windows x64">
 </p>
@@ -50,7 +50,7 @@
 <a id="download"></a>
 ## 下载
 
-**[前往 GitHub Releases 下载](https://github.com/RedWait/pillow-control/releases/latest)** · [v0.2.1 发布说明](https://github.com/RedWait/pillow-control/releases/tag/v0.2.1)
+**[前往 GitHub Releases 下载](https://github.com/RedWait/pillow-control/releases/latest)** · [v0.2.1 发布说明](https://github.com/RedWait/pillow-control/releases/latest)
 
 | 选择 | 适合谁 | WebView2 |
 | --- | --- | --- |
@@ -112,6 +112,8 @@ npm run pack    # 生成安装版、便携 ZIP 和校验文件
 - [开发、架构、完整测试与打包命令](docs/DEVELOPMENT.md)
 - [Windows 验证记录](docs/VALIDATION.md) · [真机验收清单](docs/ACCEPTANCE.md)
 - [当前 UI 精修与验证范围](docs/UI_POLISH.md) · [手机界面验证](docs/MOBILE_UI.md)
+- [鼠标定位光环：使用与验证（本地开发版，未发布）](docs/POINTER_HALO.md)
+- [本地开发版：Backspace、滚动修复、鼠标放大镜与关机](docs/REMOTE_ENHANCEMENTS.md)（尚未发布）
 - [迁移与可恢复基线](docs/MIGRATION.md)
 
 浏览器模拟、自动化测试和构建成功都不等于实体手机、真实 Wi-Fi 或全新 Windows 的验收通过。
@@ -125,3 +127,7 @@ npm run pack    # 生成安装版、便携 ZIP 和校验文件
 项目采用 [MIT 许可证](LICENSE)。依赖和分发素材的许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 如果枕控帮你少下了一次床，欢迎点个 ⭐，也欢迎分享给同样懒得起身的朋友。
+
+### 软件更新
+
+电脑端「软件更新」支持手动检查与可关闭的启动检查。安装版仅在签名验证通过、用户确认后安装；便携版打开发布页面手动下载。首个带更新功能的版本仍需手动安装。[配置、发布流程与验收边界](docs/UPDATES.md)。

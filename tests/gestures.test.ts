@@ -49,3 +49,22 @@ describe("touchpad", () => {
     expect(m.drain()).toEqual({ dx: 0, dy: 0, scroll: 0 });
   });
 });
+
+it("capture loss only removes its own pointer and never resumes mouse movement", () => {
+  const events: unknown[] = [];
+  const g = new TouchpadGesture((...e) => events.push(e));
+  g.down(1,{x:0,y:0},0); g.down(2,{x:20,y:0},1);
+  g.up(2,100); g.lost(2);
+  g.down(3,{x:20,y:0},110); g.move(1,{x:0,y:10});
+  expect(events).toEqual([["scroll",0,5]]);
+  g.lost(3); g.move(1,{x:0,y:20}); g.up(1,120);
+  expect(events).toHaveLength(1);
+});
+it("accumulates small scroll deltas into complete detents, clears remainder on cancel", () => {
+  const m = new MotionBuffer();
+  for(let i=0;i<5;i++) { m.scroll += 20; expect(m.drain().scroll).toBe(0); }
+  m.scroll += 40; expect(m.drain().scroll).toBe(120);
+  m.clear(); m.scroll = -119; expect(m.drain().scroll).toBe(0);
+  m.scroll -= 1; expect(m.drain().scroll).toBe(-120);
+  expect(m.drain().scroll).toBe(0);
+});

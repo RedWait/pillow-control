@@ -1,5 +1,8 @@
 pub mod control;
+mod magnifier;
 pub mod network;
+pub mod pointer_halo;
+mod power;
 pub mod preferences;
 pub mod protocol;
 pub mod security;
@@ -8,3 +11,4 @@ pub mod service;
 pub mod transport;
 pub mod verification;
 pub mod windows_control;
+pub mod updates;

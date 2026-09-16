@@ -3,8 +3,11 @@ use crate::{control::Controller, server::Server, windows_control::WindowsControl
 use serde_json::{json, Value};
 use std::io::{BufRead, Write};
 pub async fn run() {
+    let store = crate::preferences::Store::memory();
+    let native_store = store.clone();
     let controller =
-        Controller::start(|| Ok(Box::new(WindowsControl::new()?))).expect("Windows control");
+        Controller::start(move || Ok(Box::new(WindowsControl::with_store(native_store)?)))
+            .expect("Windows control");
     let mut server = Some(
         Server::start(std::net::Ipv4Addr::LOCALHOST, 0, controller.clone())
             .await
@@ -35,6 +38,7 @@ pub async fn run() {
         let action = request["action"].as_str().unwrap_or("");
         let result:Result<Value,String>=match action {
             "probe"=>controller.probe().await,
+            "halo-settings"=>serde_json::from_value::<crate::preferences::HaloSettings>(request["value"].clone()).map_err(|e|e.to_string()).and_then(|halo|store.lock().unwrap().update(|p|p.halo=halo)).map(|_|Value::Null),
             "restore-volume"=>controller.restore_volume(request["value"].as_f64().unwrap_or(0.5) as f32).await.map(|_|Value::Null),
             "state"=>Ok(server.as_ref().map(|s|json!({"origin":s.context.origin,"code":s.context.code(),"connected":s.context.connected()})).unwrap_or(Value::Null)),
             "revoke"=>server.as_ref().ok_or("stopped".to_string()).and_then(|s|s.context.revoke()).map(|_|Value::Null),

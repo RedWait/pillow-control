@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use pillow_control::service::{Action, DesktopState, Service};
+use pillow_control::updates::{UpdateAction, UpdateState, Updates};
 use std::sync::{atomic::Ordering, Arc};
 use tauri::{
     menu::{Menu, MenuItem},
@@ -77,6 +78,11 @@ async fn desktop_action(
     address: Option<String>,
 ) -> Result<DesktopState, String> {
     local(&window)?;
+    if matches!(action, Action::Start)
+        && app.state::<Arc<Updates>>().snapshot().phase == "installing"
+    {
+        return Err("正在准备安装更新，请稍候".into());
+    }
     if matches!(action, Action::Autostarton | Action::Autostartoff) {
         let enabled = matches!(action, Action::Autostarton);
         let previous = app.autolaunch().is_enabled().map_err(|e| e.to_string())?;
@@ -117,6 +123,28 @@ fn quit(app: &tauri::AppHandle) {
         app.exit(0);
     });
 }
+#[tauri::command]
+fn update_state(
+    window: tauri::WebviewWindow,
+    updates: tauri::State<'_, Arc<Updates>>,
+) -> Result<UpdateState, String> {
+    local(&window)?;
+    Ok(updates.snapshot())
+}
+#[tauri::command]
+async fn update_action(
+    window: tauri::WebviewWindow,
+    app: tauri::AppHandle,
+    updates: tauri::State<'_, Arc<Updates>>,
+    service: tauri::State<'_, Arc<Service>>,
+    action: UpdateAction,
+    confirmed: Option<bool>,
+) -> Result<UpdateState, String> {
+    local(&window)?;
+    updates
+        .action(&app, &service, action, confirmed.unwrap_or(false))
+        .await
+}
 fn main() {
     if std::env::args().any(|a| a == "--verify-server") {
         let runtime = tokio::runtime::Runtime::new().expect("verification runtime");
@@ -124,6 +152,7 @@ fn main() {
         return;
     }
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, _| {
             if !args.iter().any(|a| a == "--autostart") {
                 show(app);
@@ -136,7 +165,12 @@ fn main() {
                 .build(),
         )
         .manage(StartupStatus::default())
-        .invoke_handler(tauri::generate_handler![desktop_state, desktop_action])
+        .invoke_handler(tauri::generate_handler![
+            desktop_state,
+            desktop_action,
+            update_state,
+            update_action
+        ])
         .setup(|app| {
             // Fit the initial window into the usable desktop at its actual DPI.
             // Do this once: restoring from the tray must preserve user resizing.
@@ -165,6 +199,23 @@ fn main() {
             .map_err(std::io::Error::other)?;
             let service = Service::new(store).map_err(std::io::Error::other)?;
             app.manage(service.clone());
+            let updates = Updates::new(
+                app.package_info().version.to_string(),
+                service.store.clone(),
+            );
+            app.manage(updates.clone());
+            let update_handle = app.handle().clone();
+            let update_service = service.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                if updates.snapshot().startup_check
+                    && !update_service.exiting.load(Ordering::SeqCst)
+                {
+                    let _ = updates
+                        .action(&update_handle, &update_service, UpdateAction::Check, false)
+                        .await;
+                }
+            });
             let show_item =
                 MenuItem::with_id(app, "show", "打开枕控 PillowControl", true, None::<&str>)?;
             let stop = MenuItem::with_id(app, "stop", "停止遥控", true, None::<&str>)?;

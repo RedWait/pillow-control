@@ -94,13 +94,29 @@ try {
   await page.evaluate(()=>window.__shrinkViewport(650));
   await page.getByRole('button',{name:'更多',exact:true}).click();
   await screenshot({path:resolve(output,'more.png')});
-  for (const name of ['显示桌面','Esc','回车','向上滚动','向下滚动']) await page.getByRole('button',{name,exact:true}).click();
-  assert.deepEqual(await page.evaluate(()=>window.__commands.slice(-5)),[{type:'desktop'},{type:'key',key:'escape'},{type:'key',key:'enter'},{type:'scroll',dy:-120},{type:'scroll',dy:120}]);
+  for (const name of ['Esc','显示桌面','删除（Backspace）','向上滚动','向下滚动','回车']) await page.getByRole('button',{name,exact:true}).click();
+  assert.deepEqual(await page.evaluate(()=>window.__commands.slice(-6)),[{type:'key',key:'escape'},{type:'desktop'},{type:'key',key:'backspace'},{type:'scroll',dy:-120},{type:'scroll',dy:120},{type:'key',key:'enter'}]);
   for (let i=0;i<9;i++) { await page.keyboard.press('Tab'); assert.ok(await page.evaluate(()=>!document.activeElement.closest('main'))); }
   const beforeBackdrop=await page.evaluate(()=>window.__commands.filter(c=>c.type!=='release').length);
-  await page.mouse.click(195,100);
+  await page.touchscreen.tap(195,100);
   assert.ok(!await page.locator('dialog').isVisible());
   assert.equal(await page.evaluate(()=>window.__commands.filter(c=>c.type!=='release').length),beforeBackdrop);
+  const cdp = await context.newCDPSession(page);
+  const pad = await page.locator('.touchpad').boundingBox();
+  const touch = (id, y) => ({id, x:pad.x+60+id*45, y:pad.y+50+y});
+  await page.evaluate(()=>window.__commands=[]);
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(1,0),touch(2,0)]});
+  for(let y=6;y<=60;y+=6) {
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(1,y),touch(2,y)]});
+    await page.waitForTimeout(20);
+  }
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[touch(1,60)]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(1,80)]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await page.waitForTimeout(350);
+  const swipes = await page.evaluate(()=>window.__commands.filter(c=>c.type!=='release'));
+  assert.ok(swipes.some(c=>c.type==='scroll'), JSON.stringify(swipes));
+  assert.ok(swipes.every(c=>c.type==='scroll' && c.dy%120===0),JSON.stringify(swipes));
   await page.getByRole('button',{name:'切换窗口',exact:true}).click();
   await page.getByRole('button',{name:'下一个',exact:true}).click();
   await page.getByRole('button',{name:'上一个',exact:true}).click();
@@ -108,6 +124,16 @@ try {
   assert.deepEqual(await page.evaluate(()=>window.__commands.filter(c=>c.type==='switch').map(c=>c.action)),['next','next','previous','confirm']);
   await page.getByRole('button',{name:'设置',exact:true}).click();
   await screenshot({path:resolve(output,'settings.png')});
+  await page.getByRole('button',{name:'开启鼠标放大镜',exact:true}).click();
+  await page.getByRole('button',{name:'关闭鼠标放大镜',exact:true}).waitFor();
+  await page.getByRole('button',{name:'关闭鼠标放大镜',exact:true}).click();
+  await page.getByRole('button',{name:'关闭电脑…',exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.__commands.filter(c=>c.type==='shutdown').length),0);
+  await screenshot({path:resolve(output,'shutdown-confirmation.png')});
+  await page.getByRole('button',{name:'确认关机',exact:true}).click(); // Simulated transport ONLY; never runs a real shutdown.
+  assert.equal(await page.evaluate(()=>window.__commands.filter(c=>c.type==='shutdown').length),1);
+  assert.ok(await page.getByRole('button',{name:'已提交，请查看电脑',exact:true}).isDisabled());
+
   await page.getByRole('button',{name:'关闭'}).click();
   // Cancel any pending tap before entering a sheet.
   const beforeTap=await page.evaluate(()=>window.__commands.filter(c=>c.type==='click').length);

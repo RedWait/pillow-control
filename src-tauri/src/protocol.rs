@@ -11,6 +11,8 @@ pub enum Command {
     Switch { action: Switch },
     Desktop {},
     Text { text: String },
+    Magnifier { enabled: bool },
+    Shutdown { confirmed: bool },
     Release {},
 }
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -29,6 +31,7 @@ pub enum Key {
     Down,
     Enter,
     Escape,
+    Backspace,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -66,6 +69,7 @@ impl Command {
                         .chars()
                         .any(|c| (c < ' ' && !['\r', '\n', '\t'].contains(&c)) || c == '\u{7f}')
             }
+            Self::Shutdown { confirmed } => *confirmed,
             _ => true,
         };
         if valid {

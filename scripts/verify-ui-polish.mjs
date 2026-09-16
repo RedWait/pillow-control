@@ -25,6 +25,15 @@ try {
  let state=await invoke('desktop_state');assert.ok(state.running && state.codeRemaining>0);checks.realExpiry=true;
  await shot(desktopPage,'desktop-waiting');
  checks.defaultViewport=await desktopPage.evaluate(()=>({width:innerWidth,height:innerHeight,scrollHeight:document.documentElement.scrollHeight}));
+ await desktopPage.getByText('遥控设置',{exact:true}).click();
+ assert.deepEqual((await invoke('desktop_state')).halo,{enabled:true,size:'medium'});
+ await desktopPage.locator('#halo-size').selectOption('large');
+ await desktopPage.getByRole('checkbox',{name:/鼠标定位光环/}).uncheck();
+ await desktopPage.waitForFunction(()=>!document.querySelector('input[type=checkbox]').checked);
+ state=await invoke('desktop_state');assert.deepEqual(state.halo,{enabled:false,size:'large'});
+ const savedHalo=JSON.parse(await readFile(prefs,'utf8'));assert.deepEqual(savedHalo.halo,state.halo);assert.equal(savedHalo.autostart,false);
+ checks.haloSettingsSaved=true;await shot(desktopPage,'desktop-halo-settings');
+ await desktopPage.getByText('遥控设置',{exact:true}).click();
  await desktopPage.getByText('连接设置',{exact:true}).click();assert.ok(await desktopPage.locator('#network').isDisabled());await shot(desktopPage,'desktop-settings');
  await desktopPage.getByText('连接设置',{exact:true}).click();
  await desktopPage.getByRole('button',{name:'复制地址'}).click();await desktopPage.getByRole('status').filter({hasText:/地址已复制|复制失败/}).waitFor();checks.copyFeedback=true;
@@ -70,6 +79,13 @@ try {
  // CSS viewport checks only, not actual Windows DPI settings.
  for(const [width,height] of [[760,648],[608,512],[507,420],[480,420]]) {await desktopPage.setViewportSize({width,height});assert.ok(await desktopPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await desktopPage.getByRole('button',{name:'退出程序'}).scrollIntoViewIfNeeded();}
  checks.smallViewportAccessible=true;
+ await invoke('desktop_action',{action:'quit'}).catch(()=>{});await exited;app=null;
+ await desktopBrowser.close().catch(()=>{});
+ app=spawn(resolve('src-tauri/target/release/pillow-control.exe'),[],{windowsHide:true,cwd:process.env.TEMP,env:{...process.env,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port=19335'}});exited=once(app,'exit');
+ for(let i=0;i<100;i++){if(await fetch('http://127.0.0.1:19335/json/version').then(r=>r.ok,()=>false))break;await wait(150);}
+ desktopBrowser=await chromium.connectOverCDP('http://127.0.0.1:19335');
+ for(let i=0;i<100;i++){desktopPage=desktopBrowser.contexts()[0].pages()[0];if(desktopPage && await desktopPage.evaluate(()=>!!window.__TAURI_INTERNALS__).catch(()=>false))break;await wait(100);}
+ assert.deepEqual((await invoke('desktop_state')).halo,{enabled:false,size:'large'});checks.haloSettingsSurviveRestart=true;
  await invoke('desktop_action',{action:'quit'}).catch(()=>{});await exited;app=null;
  await writeFile(join(dir,'results.json'),JSON.stringify({scope:'Actual Tauri WebView2 and Rust HTTP/WS; Chromium mobile viewport, not a physical phone or Windows DPI change',checks},null,2));console.log(JSON.stringify(checks,null,2));
 } finally {

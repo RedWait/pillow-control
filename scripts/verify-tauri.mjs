@@ -104,7 +104,7 @@ try {
     };
   });
   await page.goto(ready.origin);
-  await page.getByPlaceholder("000000").fill(ready.code);
+  await page.locator("#pair-code").fill(ready.code);
   await page.getByRole("button", { name: "配对连接", exact: true }).click();
   await page.getByText("已连接", { exact: true }).waitFor();
   checks.mobilePairing = true;
@@ -149,11 +149,90 @@ try {
       dy: Math.max(-50, Math.min(50, Math.round(dy / 6))),
     });
   }
+  await send({type:"move",dx:2,dy:0});
+  await wait(80);
+  let halo = await fixture.request("halo");
+  checks.haloFollowsPhysicalCursor = halo.visible && Math.abs(halo.left+halo.width/2-halo.x)<=1 && Math.abs(halo.top+halo.height/2-halo.y)<=1;
+  details.haloInspection={...halo,beforeForeground:from.foreground};
+  checks.haloTransparentAndNonActivating = halo.hit!==halo.hwnd && halo.strokeHit!==halo.hwnd && halo.foreground===from.foreground && (halo.style & 0x080800a0)===0x080800a0;
+  details.haloScreenshot=await fixture.request("halo-screenshot");
+  details.screens=await fixture.request("screens");
+  details.haloGeometry=(await app.request({action:"probe"})).halo;
   const moved = await app.request({ action: "probe" });
   checks.realCursorMoved = moved.x !== from.x || moved.y !== from.y;
   await send({ type: "click", button: "left", count: 1 });
   await wait(120);
   checks.realClick = (await fixture.request("clicks")) === 1;
+  checks.haloClickPassesThrough = checks.realClick && (await fixture.request("halo")).visible;
+  await send({type:"move",dx:2,dy:0});
+  await wait(1110);
+  const fading=(await app.request({action:"probe"})).halo;
+  checks.haloFades = fading.alpha>0 && fading.alpha<255;
+  await wait(220);
+  checks.haloHidesWhenIdle = !(await fixture.request("halo")).visible;
+  await fixture.request("local-move"); await wait(120);
+  checks.localMovementDoesNotTriggerHalo = !(await fixture.request("halo")).visible;
+  for(const mode of ["maximize","borderless"]) {
+    await fixture.request(mode); await send({type:"move",dx:2,dy:0});await wait(80);
+    checks[`haloOver${mode}`]=(await fixture.request("halo")).visible;
+  }
+  await fixture.request("normal");
+  await app.request({action:"halo-settings",value:{enabled:true,size:"large"}});
+  await send({type:"move",dx:2,dy:0});await wait(80);
+  const large=(await app.request({action:"probe"})).halo;
+  checks.haloSizeUpdates = large.diameter===Math.round(112*large.dpi/96);
+  await app.request({action:"halo-settings",value:{enabled:false,size:"large"}});await wait(80);
+  checks.haloDisableCleansWindow = !(await fixture.request("halo")).exists;
+  await app.request({action:"halo-settings",value:{enabled:true,size:"medium"}});await wait(80);
+  checks.haloEnableNeedsRemoteMovement = !(await fixture.request("halo")).visible;
+  await fixture.request("edge");await send({type:"move",dx:-1,dy:0});await wait(80);
+  const edgeHalo=await fixture.request("halo");
+  checks.haloAtScreenEdge=edgeHalo.visible && edgeHalo.left<0 && edgeHalo.top<0 && Math.abs(edgeHalo.left+edgeHalo.width/2-edgeHalo.x)<=1;
+  details.haloScreens=[];
+  for(let i=0;i<details.screens.length;i++) {
+    await fixture.request(`screen-${i}`); await send({type:"move",dx:2,dy:0});await wait(100);
+    const native=await fixture.request("halo");const observed=(await app.request({action:"probe"})).halo;
+    details.haloScreens.push({screen:details.screens[i],native,observed});
+    assert.ok(native.visible && Math.abs(native.left+native.width/2-native.x)<=1 && Math.abs(native.top+native.height/2-native.y)<=1,"Physical halo center on monitor");
+    assert.equal(observed.diameter,Math.round(88*observed.dpi/96));
+  }
+  checks.haloOnAvailableMonitors=true;
+
+  await fixture.request("target-cursor");
+
+
+
+  await send({type:"scroll",dy:120});
+  await wait(150);
+  checks.realWheel = (await fixture.request("wheel")) === -120;
+  // Reset the session sequence before switching from diagnostic IDs to normal UI IDs.
+  await page.reload();
+  await page.getByText("已连接", {exact:true}).waitFor();
+  const cdp = await context.newCDPSession(page);
+  const pad = await page.locator('.touchpad').boundingBox();
+  const touch = (id,y) => ({id,x:pad.x+60+id*45,y:pad.y+50+y});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(1,0),touch(2,0)]});
+  for(let y=6;y<=60;y+=6) {
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(1,y),touch(2,y)]});
+    await wait(20);
+  }
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await wait(100);
+  checks.browserTwoFingerToRealWindowsWheel = (await fixture.request("wheel")) <= -240;
+
+  await send({type:"magnifier",enabled:true});
+  await wait(150);
+  const lens = await fixture.request("lens");
+  checks.realMagnifierWindow = lens.exists && lens.visible && lens.foreground === target.hwnd;
+  details.magnifierScreenshot = await fixture.request("lens-screenshot");
+  await send({type:"release"});
+  checks.gestureReleaseKeepsMagnifier = (await app.request({action:"probe"})).magnifier;
+  await wait(1600);
+  checks.magnifierHidesWhenIdle = !(await fixture.request("lens")).visible;
+  await send({type:"move",dx:20,dy:0}); await wait(100);
+  checks.magnifierFollowsMovement = (await fixture.request("lens")).visible;
+  await send({type:"magnifier",enabled:false});
+  checks.magnifierDestroyed = !(await fixture.request("lens")).exists;
   const file = await fixture.request("notepad");
   await wait(2000);
   const initial = await fixture.request("read-notepad");
@@ -167,6 +246,8 @@ try {
   await wait(300);
   details.notepad = await fixture.request("read-notepad");
   checks.notepadChinese = details.notepad.text.includes(sample);
+  await send({type:"text",text:"X"}); await send({type:"key",key:"backspace"}); await wait(100);
+  checks.realBackspace = (await fixture.request("read-notepad")).text === details.notepad.text;
   await send({ type: "volume", action: before.volume > 0.9 ? "down" : "up" });
   const changed = await app.request({ action: "probe" });
   checks.realVolumeChanged = Math.abs(changed.volume - before.volume) > 0.0001;
@@ -175,7 +256,15 @@ try {
     (await app.request({ action: "probe" })).muted !== before.muted;
   await send({ type: "volume", action: "mute" });
   await app.request({ action: "restore-volume", value: before.volume });
-  await fixture.request("target");
+  const switchTarget = await fixture.request("target");
+  // SetForegroundWindow may be refused after typing in Notepad. Activate our own target with real input.
+  for(let i=0;i<80;i++) {
+    const p=await app.request({action:"probe"});const dx=switchTarget.x-p.x,dy=switchTarget.y-p.y;
+    if(Math.abs(dx)<8 && Math.abs(dy)<8)break;
+    await send({type:"move",dx:Math.max(-50,Math.min(50,Math.round(dx/6))),dy:Math.max(-50,Math.min(50,Math.round(dy/6)))});
+  }
+  await send({type:"click",button:"left",count:1});await wait(150);
+  assert.equal((await app.request({action:"probe"})).foreground,switchTarget.hwnd,"Owned switch target must actually have focus");
   await fixture.request("untop");
   await wait(150);
   const start = await app.request({ action: "probe" });
@@ -185,10 +274,12 @@ try {
   const firstWindow = await app.request({ action: "probe" });
   await send({ type: "switch", action: "next" });
   checks.altHeld = (await app.request({ action: "probe" })).altHeld;
+  await wait(180); // Allow the Windows task switcher to open before the next human-paced selection.
   await send({ type: "switch", action: "next" });
   checks.consecutiveSwitchKeepsAlt = (
     await app.request({ action: "probe" })
   ).altHeld;
+  await wait(180);
   await send({ type: "switch", action: "confirm" });
   await wait(200);
   const switched = await app.request({ action: "probe" });
@@ -201,15 +292,23 @@ try {
   ];
   checks.thirdWindowReached = new Set(details.switchWindows).size === 3;
   await send({ type: "switch", action: "next" });
+  await send({type:"magnifier",enabled:true});
+  await send({type:"switch",action:"next"});
   await page.evaluate(() => window.testSocket.close());
   await wait(150);
   checks.disconnectReleased = !(await app.request({ action: "probe" })).altHeld;
   await page.getByText("已连接", { exact: true }).waitFor();
   checks.autoReconnect = true;
+  checks.disconnectDestroysMagnifier = !(await fixture.request("lens")).exists;
+  checks.disconnectDestroysHalo = !(await fixture.request("halo")).exists;
   await page.reload();
   await page.getByText("已连接", { exact: true }).waitFor();
   checks.tokenReload = true;
-  await fixture.request("focus-notepad");
+  await fixture.request("target");await fixture.request("target-cursor");
+  await send({type:"click",button:"left",count:1});await wait(100);
+  await fixture.request("untop");
+  assert.ok(await fixture.request("focus-notepad"),"Fixture must activate the owned Notepad before text input");
+  await page.reload();await page.getByText("已连接",{exact:true}).waitFor();
   await wait(100);
   await page.getByRole("button", { name: /^键盘/ }).click();
   const textbox = page.locator("#remote-text");
@@ -221,11 +320,13 @@ try {
   await textbox.dispatchEvent("compositionend", {
     data: "手机组词发送验证 ABC",
   });
+  const textBeforeSend = (await fixture.request("read-notepad")).text;
   await page.getByRole("button", { name: "发送文字", exact: true }).click();
-  await wait(200);
+  await page.waitForFunction(() => document.querySelector("#remote-text").value === "");
+  await wait(300);
   const finalText = (await fixture.request("read-notepad")).text;
   checks.compositionSendsOnce =
-    finalText.split("手机组词发送验证 ABC").length === 2;
+    finalText.split("手机组词发送验证 ABC").length - textBeforeSend.split("手机组词发送验证 ABC").length === 1;
   checks.clipboardUnchanged =
     clipboardBefore === (await fixture.request("clipboard-sequence"));
   await page.screenshot({
@@ -235,7 +336,14 @@ try {
   await app.request({ action: "revoke" });
   await page.getByRole("button", { name: "配对连接", exact: true }).waitFor();
   checks.revocationReturnedToPairing = true;
-  await app.request({ action: "stop" });
+  const repaired=await app.request({action:"state"});
+  await page.locator("#pair-code").fill(repaired.code);
+  await page.getByRole("button",{name:"配对连接",exact:true}).click();
+  await page.getByText("已连接",{exact:true}).waitFor();
+  await send({type:"move",dx:2,dy:0});await wait(80);
+  assert.ok((await fixture.request("halo")).visible,"Halo must be active before stopping the service");
+  await app.request({ action: "stop" });await wait(80);
+  checks.stopDestroysHalo = !(await fixture.request("halo")).exists;
   checks.stoppedPortClosed = await fetch(ready.origin).then(
     () => false,
     () => true,

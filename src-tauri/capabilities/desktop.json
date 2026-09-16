@@ -4,5 +4,5 @@
   "description": "Only the bundled main window can read state and manage the remote service.",
   "windows": ["main"],
   "local": true,
-  "permissions": ["allow-desktop-state", "allow-desktop-action"]
+  "permissions": ["allow-desktop-state", "allow-desktop-action", "allow-update-state", "allow-update-action"]
 }

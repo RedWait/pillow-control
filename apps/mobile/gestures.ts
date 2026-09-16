@@ -49,6 +49,10 @@ export class TouchpadGesture {
       this.emit("tap", 0, 0);
     this.points.delete(id);
   }
+  lost(id: number) {
+    // Normal pointerup already removed this contact. Never discard the other finger.
+    if (this.points.delete(id)) this.multi = true;
+  }
   cancel() {
     this.points.clear();
     this.multi = false;
@@ -66,7 +70,8 @@ export class MotionBuffer {
   drain() {
     const dx = Math.trunc(this.x),
       dy = Math.trunc(this.y),
-      scroll = Math.trunc(this.scroll);
+      // Emit complete Windows wheel detents: legacy apps may drop tiny wheel deltas.
+      scroll = Math.trunc(this.scroll / 120) * 120 || 0;
     this.x -= dx;
     this.y -= dy;
     this.scroll -= scroll;

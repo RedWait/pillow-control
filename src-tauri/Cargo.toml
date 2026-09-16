@@ -1,6 +1,6 @@
 [package]
 name = "pillow-control"
-version = "0.2.1"
+version = "0.3.0"
 description = "枕控 PillowControl"
 authors = ["PillowControl contributors"]
 license = "MIT"
@@ -27,11 +27,18 @@ getrandom = "0.3"
 sha2 = "0.10"
 subtle = "2"
 hex = "0.4"
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_Media_Audio", "Win32_Media_Audio_Endpoints", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Networking_WinSock"] }
+windows = { version = "0.62", features = ["Win32_UI_Shell", "Win32_UI_HiDpi", "Win32_UI_Magnification", "Win32_Graphics_Gdi", "Win32_Security", "Win32_System_Threading", "Win32_System_Shutdown", "Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_Media_Audio", "Win32_Media_Audio_Endpoints", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Networking_WinSock"] }
 tauri-plugin-autostart = "2"
 winreg = "0.10.1"
+tauri-plugin-updater = "=2.11.0"
+semver = "1"
+updater-http = { package = "reqwest", version = "0.13", default-features = false, features = ["json", "stream"] }
+base64 = "0.22"
+minisign-verify = "0.2.5"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 
 [dev-dependencies]
+tauri = { version = "2", features = ["test"] }
 reqwest = { version = "0.12", default-features = false, features = ["json"] }
 tokio-tungstenite = "0.28"
 

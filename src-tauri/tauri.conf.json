@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "枕控 PillowControl",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "identifier": "org.pillowcontrol.desktop",
   "build": {
     "beforeDevCommand": "node scripts/build-frontend.mjs && node scripts/licenses.mjs",
@@ -67,11 +67,25 @@
       "../docs/DEVELOPMENT.md": "docs/DEVELOPMENT.md",
       "../docs/TROUBLESHOOTING.md": "docs/TROUBLESHOOTING.md",
       "../docs/UI_POLISH.md": "docs/UI_POLISH.md",
-      "../docs/assets/": "docs/assets/"
+      "../docs/assets/": "docs/assets/",
+      "../docs/UPDATES.md": "docs/UPDATES.md",
+      "../docs/POINTER_HALO.md": "docs/POINTER_HALO.md",
+      "../docs/REMOTE_ENHANCEMENTS.md": "docs/REMOTE_ENHANCEMENTS.md"
     },
     "icon": [
       "icons/icon.ico",
       "icons/icon.png"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdBOUJCNzY3NjE0NkY3Q0YKUldUUDkwWmhaN2ViZWcrQ3JRQnFaZ3BKQkZwV09Rc0hGbnZXUVdvZzhKcHl6K01BVlB6b0JzckwK",
+      "endpoints": [
+        "https://github.com/RedWait/pillow-control/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "basicUi"
+      }
+    }
   }
 }

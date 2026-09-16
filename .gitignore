@@ -9,3 +9,7 @@ output/
 src-tauri/target/
 src-tauri/gen/
 tauri-dist/
+*.key
+*.key.*
+.env
+.env.*

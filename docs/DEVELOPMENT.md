@@ -81,3 +81,7 @@ git worktree add ../pillow-control-electron c324064
 
 复用/替换对照及技术资料见 [迁移记录](MIGRATION.md)。
 手机界面改版、浏览器验证范围与真机补验步骤见 [手机界面验证](MOBILE_UI.md)。更新后请完全退出旧电脑程序，再运行新版并刷新手机网页。
+
+## Signed updates
+
+See [软件更新与签名发布](UPDATES.md) for key setup, `npm run pack:release -- docs/RELEASE-x.y.z.md`, explicit draft-first publishing, and update acceptance. Regular `npm run pack` remains a local unsigned-updater build.

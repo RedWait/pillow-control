@@ -1,6 +1,6 @@
 {
   "name": "pillow-control",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "枕控 PillowControl — Windows 局域网遥控器",
   "author": "PillowControl contributors",
   "license": "MIT",
@@ -17,7 +17,11 @@
     "pack": "node scripts/tauri.mjs build && node scripts/package-portable.mjs",
     "verify:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-verification.ps1 && node scripts/verify-tauri.mjs",
     "verify:desktop": "node scripts/verify-desktop.mjs",
-    "verify:mobile": "npm run build:frontend && node scripts/verify-mobile-ui.mjs"
+    "verify:mobile": "npm run build:frontend && node scripts/verify-mobile-ui.mjs",
+    "updater:key": "node scripts/configure-updater-key.mjs",
+    "pack:release": "node scripts/update-release.mjs prepare",
+    "release:publish": "node scripts/update-release.mjs publish",
+    "verify:updates": "node scripts/verify-updates.mjs"
   },
   "dependencies": {
     "@lucide/vue": "1.45.0",

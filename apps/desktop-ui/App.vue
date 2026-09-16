@@ -6,8 +6,11 @@ import logo from "../../shared/assets/logo-ui.png";
 import type { DesktopState } from "../../shared/protocol";
 import "./style.css";
 import {desktop} from './bridge';
+import SoftwareUpdate from "./SoftwareUpdate.vue";
+import { version } from "../../package.json";
 const state = ref<DesktopState>({
   running: false,
+  halo: { enabled: true, size: "medium" },
   autostart: false,
   trusted: false,
   connected: false,
@@ -72,7 +75,7 @@ onUnmounted(() => unsubscribe());
 </script>
 <template>
   <main>
-    <header class="brand-header"><img class="brand-icon" :src="logo" alt="" /><h1>枕控 <span>PillowControl</span></h1><span class="version">v0.2.1</span></header>
+    <header class="brand-header"><img class="brand-icon" :src="logo" alt="" /><h1>枕控 <span>PillowControl</span></h1><span class="version">v{{ version }}</span></header>
     <section class="status" :class="{ connected: state.connected && state.running }" aria-live="polite">
       <div class="status-heading"><span class="dot" :class="{ live: state.running }"></span><h2>{{ title }}</h2></div>
       <p>{{ description }}</p>
@@ -88,7 +91,13 @@ onUnmounted(() => unsubscribe());
     <section class="address-row"><div><p class="hint">当前连接地址{{ state.running ? '' : '（服务已停止）' }}</p><code>{{ url || "暂无可用局域网地址" }}</code></div><button :disabled="!url" @click="copyAddress"><Copy aria-hidden="true" />复制地址</button></section>
     <p v-if="copyMessage" class="copy-feedback" role="status">{{ copyMessage }}</p>
     <details class="settings"><summary>连接设置<ChevronDown aria-hidden="true" /></summary><div class="details-body"><label for="network">局域网网卡</label><select id="network" v-model="selected" :disabled="state.running || busy"><option value="" disabled>请选择局域网网卡</option><option v-for="item in state.addresses" :key="item.address" :value="item.address">{{ item.name }} · {{ item.address }}{{ item.virtual ? '（虚拟 / VPN）' : '' }}</option></select><p class="hint">更换网卡请先停止遥控，再选择并启动。</p></div></details>
+    <details class="settings"><summary>遥控设置<ChevronDown aria-hidden="true" /></summary><div class="details-body">
+      <label class="startup-setting"><span>鼠标定位光环<small>仅遥控移动时显示，停止约 1 秒后淡出</small></span><input type="checkbox" :checked="state.halo.enabled" :disabled="busy" @change="action(state.halo.enabled ? 'halooff' : 'haloon')" /></label>
+      <label for="halo-size">光环大小</label><select id="halo-size" :value="state.halo.size" :disabled="busy" @change="action('halo' + ($event.target as HTMLSelectElement).value)"><option value="small">小</option><option value="medium">中（默认）</option><option value="large">大</option></select>
+      <p class="hint">透明圆心不挡目标；设置保存在这台电脑上，不修改系统鼠标主题。</p>
+    </div></details>
     <label class="startup-setting"><span>登录 Windows 后自动启动<small>启动后留在托盘</small></span><input type="checkbox" :checked="state.autostart" :disabled="busy" @change="action(state.autostart ? 'autostartoff' : 'autostarton')" /></label>
+    <SoftwareUpdate />
     <details class="help"><summary>连接不上？<ChevronDown aria-hidden="true" /></summary><div class="details-body"><p>手机连接家庭 Wi-Fi，电脑连接同一路由器；电脑可使用网线。访客网络 / AP 隔离可能阻止互访。</p><p>Windows 防火墙仅允许「专用网络」，必要时添加本程序 TCP 19827 专用网络入站许可。</p><p>多网卡优先选择真实以太网 / Wi-Fi；VPN、虚拟网卡或地址变化后请先停止遥控，再选择网卡。</p><p>只在可信局域网使用，HTTP 未加密。锁屏、UAC 和管理员窗口不支持遥控。</p></div></details>
     <footer><span>关闭窗口后继续在托盘运行</span><div><button v-if="state.running" :disabled="busy" @click="action('stop')">停止遥控</button><button :disabled="!state.trusted || busy" @click="action('disconnect')">撤销手机</button><button :disabled="busy" @click="action('quit')">退出程序</button></div></footer>
   </main>

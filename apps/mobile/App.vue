@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { Settings2, Volume1, Volume2, VolumeX, ChevronLeft, ChevronRight, Play, Pause, PanelsTopLeft, Keyboard, Ellipsis, Monitor, CornerDownLeft, ArrowUp, ArrowDown, Send, LogOut } from "@lucide/vue";
+import { Settings2, Volume1, Volume2, VolumeX, ChevronLeft, ChevronRight, Play, Pause, PanelsTopLeft, Keyboard, Ellipsis, Monitor, CornerDownLeft, ArrowUp, ArrowDown, Send, LogOut, Delete, Power, ScanSearch } from "@lucide/vue";
 import BottomSheet from "./BottomSheet.vue";
 import logo from "../../shared/assets/logo-ui.png";
 import { useConnection } from "./connection";
@@ -17,9 +17,29 @@ const composing = ref(false);
 const sending = ref(false);
 const feedback = ref("");
 const switcher = ref(false);
-type Panel = "keyboard" | "more" | "settings" | "windows" | "pair";
+const magnifier = ref(false);
+const lensPending = ref(false);
+const shutdownPending = ref(false);
+const shutdownSent = ref(false);
+async function toggleMagnifier() {
+  if (!online.value || lensPending.value) return;
+  lensPending.value = true;
+  const enabled = !magnifier.value;
+  try { await remote.send({ type: "magnifier", enabled }); magnifier.value = online.value && enabled; }
+  catch (e) { notice((e as Error).message); }
+  finally { lensPending.value = false; }
+}
+async function shutdown() {
+  if (!online.value || shutdownPending.value || shutdownSent.value) return;
+  shutdownPending.value = true;
+  shutdownSent.value = true; // Never automatically retry a destructive request after a lost acknowledgement.
+  try { await remote.send({ type: "shutdown", confirmed: true }); notice("已请求 Windows 关机；未保存的文件可能阻止关机，请查看电脑。"); }
+  catch (e) { notice(`${(e as Error).message}。请先查看电脑，勿重复提交。`); }
+  finally { shutdownPending.value = false; }
+}
+type Panel = "keyboard" | "more" | "settings" | "windows" | "pair" | "shutdown";
 const panel = ref<Panel | null>(null);
-const titles = { keyboard: "键盘", more: "更多操作", settings: "设置", windows: "切换窗口", pair: "连接电脑" };
+const titles = { keyboard: "键盘", more: "更多操作", settings: "设置", windows: "切换窗口", pair: "连接电脑", shutdown: "关闭电脑" };
 const textFeedback = ref("");
 const pairing = ref(false);
 const connectionAddress = location.host;
@@ -156,7 +176,7 @@ function connectionClick() {
 }
 watch(online, (connected) => {
   feedback.value = "";
-  if (!connected) reset();
+  if (!connected) { reset(); magnifier.value = false; }
   else if (panel.value === "pair") closePanel();
 });
 watch(status, value => {
@@ -205,7 +225,7 @@ onUnmounted(() => {
       <div class="touchpad" :class="{ touching, unavailable: !online }" role="application"
         :aria-disabled="!online" aria-label="鼠标触控板，单指移动，点按单击，双击，双指滚动"
         @pointerdown.prevent="down" @pointermove.prevent="move" @pointerup.prevent="up"
-        @pointercancel="cancel" @lostpointercapture="gesture.cancel()" @contextmenu.prevent>
+        @pointercancel="cancel" @lostpointercapture="gesture.lost($event.pointerId)" @contextmenu.prevent>
         <p>单指移动 <span aria-hidden="true">·</span> 双指滚动</p>
       </div>
       <div class="mouse-buttons">
@@ -240,11 +260,12 @@ onUnmounted(() => {
       <button class="accent send-button" type="submit" :disabled="!online || composing || sending || !input"><Send aria-hidden="true" />{{ sending ? '发送中…' : '发送文字' }}</button>
     </form>
     <div v-else-if="panel === 'more'" class="more-grid">
-      <button :disabled="!online" @click="action({ type: 'desktop' })"><Monitor aria-hidden="true" /><span>显示桌面</span></button>
       <button :disabled="!online" @click="action({ type: 'key', key: 'escape' })"><kbd class="esc-key" aria-hidden="true">esc</kbd><span>Esc</span></button>
-      <button :disabled="!online" @click="action({ type: 'key', key: 'enter' })"><CornerDownLeft aria-hidden="true" /><span>回车</span></button>
+      <button :disabled="!online" @click="action({ type: 'desktop' })"><Monitor aria-hidden="true" /><span>显示桌面</span></button>
+      <button :disabled="!online" aria-label="删除（Backspace）" @click="action({ type: 'key', key: 'backspace' })"><Delete aria-hidden="true" /><span>删除</span></button>
       <button :disabled="!online" @click="action({ type: 'scroll', dy: -120 })"><ArrowUp aria-hidden="true" /><span>向上滚动</span></button>
       <button :disabled="!online" @click="action({ type: 'scroll', dy: 120 })"><ArrowDown aria-hidden="true" /><span>向下滚动</span></button>
+      <button :disabled="!online" @click="action({ type: 'key', key: 'enter' })"><CornerDownLeft aria-hidden="true" /><span>回车</span></button>
     </div>
     <section v-else-if="panel === 'windows'" class="window-panel">
       <p>{{ switcher ? '看着电脑屏幕，连续选择后确认。' : '点击上一个或下一个，继续选择窗口。' }}</p>
@@ -258,7 +279,15 @@ onUnmounted(() => {
         <button v-if="!online" @click="status === 'unpaired' ? panel = 'pair' : remote.resume()">{{ status === 'unpaired' ? '输入配对码' : '重新连接' }}</button>
         <button v-if="status !== 'unpaired'" @click="remote.forget(); panel = 'pair'"><LogOut aria-hidden="true" />忘记此电脑</button>
       </div>
+      <div class="setting-group"><h3>看清鼠标</h3><p>电脑上显示跟随鼠标的 2 倍放大镜；停下后自动隐藏，断线后关闭。</p><button :disabled="!online || lensPending" :aria-pressed="magnifier" @click="toggleMagnifier"><ScanSearch aria-hidden="true" />{{ magnifier ? "关闭鼠标放大镜" : "开启鼠标放大镜" }}</button></div>
+      <div class="setting-group"><button :disabled="!online" @click="openPanel('shutdown')"><Power aria-hidden="true" />关闭电脑…</button></div>
       <details class="setting-group"><summary>手势与快捷键帮助</summary><p>单指相对滑动移动鼠标；轻点单击，连续轻点两下双击；双指上下滑动滚动页面。左键、右键及备用滚动按钮也可直接操作。</p><p>播放/暂停发送空格，后退、前进发送左右方向键，效果取决于电脑当前窗口与播放器。没有播放状态回传。</p><p>先在电脑上选中输入位置，再发送文字。关闭输入面板会保留草稿；断线后不会重放旧操作。</p><p>连接失败时，检查电脑服务、相同 Wi-Fi / 有线局域网、防火墙及路由器访客网络隔离。</p></details>
+    </section>
+    <section v-else-if="panel === 'shutdown'" class="window-panel">
+      <p>让 Windows 正常关闭应用（包括枕控）并关机。未保存的文件可能阻止关机，请先保存重要内容。</p>
+      <p>不会强制结束应用。如果取消了 Windows 关机，枕控仍可继续使用。</p>
+      <button class="danger-button" :disabled="!online || shutdownPending || shutdownSent" @click="shutdown"><Power aria-hidden="true" />{{ shutdownSent ? "已提交，请查看电脑" : "确认关机" }}</button>
+      <button @click="closePanel">返回遥控</button>
     </section>
     <form v-else-if="panel === 'pair'" class="pair-panel" @submit.prevent="pair">
       <label for="pair-code">输入电脑上显示的 6 位配对码</label>

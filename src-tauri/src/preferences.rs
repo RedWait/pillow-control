@@ -12,8 +12,50 @@ pub struct Preferences {
     pub token_digest: Option<String>,
     pub autostart: Option<bool>,
     pub address: String,
+    pub halo: HaloSettings,
+    pub updates: UpdatePreferences,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct UpdatePreferences {
+    pub startup_check: bool,
+}
+impl Default for UpdatePreferences {
+    fn default() -> Self { Self { startup_check: true } }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct HaloSettings {
+    pub enabled: bool,
+    pub size: HaloSize,
+}
+impl Default for HaloSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            size: HaloSize::Medium,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum HaloSize {
+    Small,
+    #[default]
+    Medium,
+    Large,
+}
+impl HaloSize {
+    pub fn diameter(self) -> u32 {
+        match self {
+            Self::Small => 64,
+            Self::Medium => 88,
+            Self::Large => 112,
+        }
+    }
 }
 pub struct Store {
+    pub halo_error: String,
     data: Preferences,
     path: Option<PathBuf>,
 }
@@ -21,6 +63,7 @@ pub type SharedStore = Arc<Mutex<Store>>;
 impl Store {
     pub fn memory() -> SharedStore {
         Arc::new(Mutex::new(Self {
+            halo_error: String::new(),
             data: Preferences::default(),
             path: None,
         }))
@@ -41,6 +84,7 @@ impl Store {
         }
         Ok(Arc::new(Mutex::new(Self {
             data,
+            halo_error: String::new(),
             path: Some(path),
         })))
     }
@@ -131,11 +175,38 @@ mod tests {
         assert!(Store::open(path.clone()).is_err());
         let store = Arc::new(Mutex::new(Store {
             path: Some(path.join("prefs.json")),
+            halo_error: String::new(),
             data: Preferences::default(),
         }));
         let mut p = Pairing::with_store(store.clone()).unwrap();
         assert!(p.pair(&p.code.clone()).is_err());
         assert!(store.lock().unwrap().get().token_digest.is_none());
         fs::remove_file(path).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod halo_tests {
+    use super::*;
+    #[test]
+    fn old_preferences_default_on_and_new_choices_persist_without_changing_trust() {
+        let mut old: Preferences = serde_json::from_str(
+            r#"{"token_digest":null,"autostart":false,"address":"192.0.2.1"}"#,
+        )
+        .unwrap();
+        assert_eq!(old.halo, HaloSettings::default());
+        old.halo = HaloSettings {
+            enabled: false,
+            size: HaloSize::Large,
+        };
+        let restored: Preferences =
+            serde_json::from_str(&serde_json::to_string(&old).unwrap()).unwrap();
+        assert_eq!(restored.halo, old.halo);
+        assert_eq!(restored.autostart, Some(false));
+        assert_eq!(restored.address, "192.0.2.1");
+        assert!(
+            serde_json::from_str::<Preferences>(r#"{"halo":{"enabled":true,"size":"huge"}}"#)
+                .is_err()
+        );
     }
 }

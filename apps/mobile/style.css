@@ -69,7 +69,7 @@ textarea::placeholder, input::placeholder { color: #979aa1; }
 .sheet-content .panel-feedback { color: var(--accent); margin-top: 6px; }
 .more-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
 .more-grid button { grid-column: span 2; }
-.more-grid button:nth-child(n+4) { grid-column: span 3; }
+.danger-button { background: #563332; color: #ffe6e4; min-height: 48px; }
 .esc-key { display: grid; place-items: center; height: 24px; min-width: 32px; border: 1px solid currentColor; border-radius: 5px; font: 12px ui-monospace, monospace; }
 .more-grid button { flex-direction: column; min-height: 84px; background: var(--raised); font-size: 13px; gap: 10px; padding: 12px 4px; }
 .key-symbol { height: 22px; font-size: 15px; font-weight: 500; }

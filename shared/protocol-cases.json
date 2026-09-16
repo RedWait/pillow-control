@@ -21,5 +21,14 @@
   {"name":"unknown-command","valid":false,"message":{"kind":"command","id":1,"command":{"type":"probe"}}},
   {"name":"id-negative","valid":false,"message":{"kind":"command","id":-1,"command":{"type":"release"}}},
   {"name":"id-unsafe","valid":false,"message":{"kind":"command","id":9007199254740992,"command":{"type":"release"}}},
-  {"name":"envelope-extra","valid":false,"message":{"kind":"command","id":1,"command":{"type":"release"},"extra":true}}
+  {"name":"envelope-extra","valid":false,"message":{"kind":"command","id":1,"command":{"type":"release"},"extra":true}},
+  {"name":"backspace","valid":true,"message":{"kind":"command","id":2,"command":{"type":"key","key":"backspace"}}},
+  {"name":"not-delete","valid":false,"message":{"kind":"command","id":2,"command":{"type":"key","key":"delete"}}},
+  {"name":"magnifier","valid":true,"message":{"kind":"command","id":2,"command":{"type":"magnifier","enabled":true}}},
+  {"name":"magnifier-off","valid":true,"message":{"kind":"command","id":2,"command":{"type":"magnifier","enabled":false}}},
+  {"name":"magnifier-invalid","valid":false,"message":{"kind":"command","id":2,"command":{"type":"magnifier","enabled":1}}},
+  {"name":"shutdown-confirmed","valid":true,"message":{"kind":"command","id":2,"command":{"type":"shutdown","confirmed":true}}},
+  {"name":"shutdown-unconfirmed","valid":false,"message":{"kind":"command","id":2,"command":{"type":"shutdown","confirmed":false}}},
+  {"name":"shutdown-missing-confirmation","valid":false,"message":{"kind":"command","id":2,"command":{"type":"shutdown"}}},
+  {"name":"shutdown-force-rejected","valid":false,"message":{"kind":"command","id":2,"command":{"type":"shutdown","confirmed":true,"force":true}}}
 ]

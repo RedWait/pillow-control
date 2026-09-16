@@ -13,13 +13,14 @@ const name = `pillow-control-${version}-portable-x64`;
 const dir = resolve("release", name);
 await mkdir(dir, { recursive: true });
 await mkdir(join(dir, "docs"), { recursive: true });
+await writeFile(join(dir, "pillow-portable.json"), JSON.stringify({ distribution: "portable", version }) + "\n");
 await copyFile(
   "src-tauri/target/release/pillow-control.exe",
   join(dir, "pillow-control.exe"),
 );
 for (const [source, target] of [
   ["LICENSE", "LICENSE"],
-  ...["README.en.md", "CONTRIBUTING.md", "docs/DEVELOPMENT.md", "docs/TROUBLESHOOTING.md", "docs/UI_POLISH.md"].map(path => [path, path]),
+  ...["README.en.md", "CONTRIBUTING.md", "docs/DEVELOPMENT.md", "docs/TROUBLESHOOTING.md", "docs/UI_POLISH.md", "docs/UPDATES.md", "docs/POINTER_HALO.md", "docs/REMOTE_ENHANCEMENTS.md"].map(path => [path, path]),
   ["README.md", "README.md"],
   ["THIRD_PARTY_NOTICES.md", "THIRD_PARTY_NOTICES.md"],
   ["docs/ACCEPTANCE.md", "docs/ACCEPTANCE.md"],

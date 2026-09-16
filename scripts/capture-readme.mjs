@@ -15,7 +15,7 @@ const origin=`http://127.0.0.1:${server.address().port}`;
 const browser=await chromium.launch({channel:'chrome',headless:true});
 try{
  const desktop=await browser.newPage({viewport:{width:760,height:680},deviceScaleFactor:2});
- await desktop.addInitScript(()=>{window.__TAURI_INTERNALS__={invoke:async()=>({running:true,connected:false,trusted:false,autostart:false,code:'123456',codeRemaining:600,addresses:[{name:'演示网络',address:'192.0.2.10',virtual:false}],selected:'192.0.2.10',port:19827,error:''})};});
+ await desktop.addInitScript(()=>{window.__TAURI_INTERNALS__={invoke:async()=>({halo:{enabled:true,size:"medium"},running:true,connected:false,trusted:false,autostart:false,code:'123456',codeRemaining:600,addresses:[{name:'演示网络',address:'192.0.2.10',virtual:false}],selected:'192.0.2.10',port:19827,error:''})};});
  await desktop.goto(origin+'/desktop-ui/index.html');await desktop.locator('.qr-card img').waitFor();await desktop.evaluate(()=>document.fonts.ready);
  await desktop.screenshot({path:resolve(output,'desktop-pairing.png')});
  const mobile=await browser.newPage({viewport:{width:390,height:650},isMobile:true,hasTouch:true,deviceScaleFactor:2});

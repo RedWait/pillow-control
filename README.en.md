@@ -4,7 +4,7 @@
 <p align="center"><a href="README.md">中文</a> · English</p>
 <p align="center"><a href="https://github.com/RedWait/pillow-control/releases/latest">Download</a> · <a href="#quick-start">Quick start</a> · <a href="#preview">Preview</a></p>
 <p align="center">
-  <a href="https://github.com/RedWait/pillow-control/releases/tag/v0.2.1"><img src="https://img.shields.io/badge/release-v0.2.1-435e53" alt="Release v0.2.1"></a>
+  <a href="https://github.com/RedWait/pillow-control/releases/latest"><img src="https://img.shields.io/github/v/release/RedWait/pillow-control?color=435e53" alt="Latest stable release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-555555" alt="MIT license"></a>
   <img src="https://img.shields.io/badge/platform-Windows_x64-555555" alt="Windows x64">
 </p>
@@ -40,7 +40,7 @@ Watching a show from bed? Use your phone to move the PC mouse, change the volume
 <a id="download"></a>
 ## Download
 
-**[Download from GitHub Releases](https://github.com/RedWait/pillow-control/releases/latest)** · [v0.2.1 release notes](https://github.com/RedWait/pillow-control/releases/tag/v0.2.1)
+**[Download from GitHub Releases](https://github.com/RedWait/pillow-control/releases/latest)** · [v0.2.1 release notes](https://github.com/RedWait/pillow-control/releases/latest)
 
 | Package | Best for | WebView2 |
 | --- | --- | --- |
@@ -104,6 +104,8 @@ Detailed documents are currently in Chinese:
 - [Development, architecture, testing and packaging](docs/DEVELOPMENT.md)
 - [Windows verification](docs/VALIDATION.md) · [Device acceptance checklist](docs/ACCEPTANCE.md)
 - [UI refinement and validation scope](docs/UI_POLISH.md) · [Mobile UI checks](docs/MOBILE_UI.md)
+- [Pointer locator halo: usage and validation (unreleased, Chinese)](docs/POINTER_HALO.md)
+- [Unreleased local changes: Backspace, scrolling, pointer magnifier and shutdown](docs/REMOTE_ENHANCEMENTS.md) (Chinese)
 - [Migration and recoverable baseline](docs/MIGRATION.md)
 
 Browser simulation, automated tests, and successful builds do not establish acceptance on physical phones, real Wi-Fi networks, or clean Windows systems.
@@ -115,3 +117,7 @@ Report bugs and suggestions in [Issues](https://github.com/RedWait/pillow-contro
 Discuss larger changes first. In pull requests, describe the changes and what you tested. Preserve command allowlists, authentication, disconnect cleanup, and the no-replay behavior. See [Contributing](CONTRIBUTING.md).
 
 Licensed under the [MIT License](LICENSE). Dependency and distribution notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+### Software updates
+
+Desktop settings provide manual checks and an optional startup check. Installed builds require a verified signature and explicit confirmation before installation; portable builds link to Releases for manual replacement. The first updater-enabled release must be installed manually. See [update setup, publishing and acceptance limits](docs/UPDATES.md).
