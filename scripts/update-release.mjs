@@ -102,7 +102,11 @@ if (mode === "prepare") {
   }
   gh(["release", "create", tag, ...assets.map(f => join(dir, f)), "--repo", repo,
     "--draft", "--target", commit, "--title", "枕控 PillowControl " + tag, "--notes-file", resolve(notesPath)]);
-  const draft = JSON.parse(gh(["api", "repos/" + repo + "/releases/tags/" + tag]));
+  // The tag endpoint can return 404 for unpublished releases. Resolve the
+  // authenticated draft from the release list and address it by release ID.
+  const created = JSON.parse(gh(["api", "--paginate", "--slurp", "repos/" + repo + "/releases?per_page=100"])).flat().filter(r => r.tag_name === tag);
+  if (created.length !== 1 || created[0].target_commitish !== commit) throw Error("Created draft identity mismatch. Draft retained for review.");
+  const draft = JSON.parse(gh(["api", "repos/" + repo + "/releases/" + created[0].id]));
   if (!draft.draft || draft.prerelease || draft.assets.length !== assets.length) throw Error("Draft asset inventory mismatch. Draft retained for review.");
   for (const file of assets) {
     const a = draft.assets.find(a => a.name === file), bytes = await readFile(join(dir, file));
@@ -112,6 +116,8 @@ if (mode === "prepare") {
       "-H", "Accept: application/octet-stream"], { maxBuffer: 600 * 1024 * 1024 });
     if (hash(remote) !== hash(bytes)) throw Error("Remote checksum mismatch. Draft retained.");
   }
-  gh(["release", "edit", tag, "--repo", repo, "--draft=false", "--latest"]);
+  const published = JSON.parse(gh(["api", "--method", "PATCH", "repos/" + repo + "/releases/" + draft.id,
+    "-F", "draft=false", "-f", "make_latest=true"]));
+  if (published.draft || published.prerelease || published.tag_name !== tag) throw Error("Unexpected published release state; inspect GitHub before retrying.");
   console.log("Published verified stable release: https://github.com/" + repo + "/releases/tag/" + tag);
 }
