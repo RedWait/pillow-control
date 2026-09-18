@@ -4,6 +4,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import { chromium } from 'playwright';
 const root=resolve('tauri-dist'), output=resolve('docs/assets');
+const {version}=JSON.parse(await readFile('package.json','utf8'));
 await mkdir(output,{recursive:true});
 const server=createServer(async(req,res)=>{
  const path=resolve(root,'.'+new URL(req.url,'http://localhost').pathname);
@@ -15,9 +16,9 @@ const origin=`http://127.0.0.1:${server.address().port}`;
 const browser=await chromium.launch({channel:'chrome',headless:true});
 try{
  const desktop=await browser.newPage({viewport:{width:760,height:680},deviceScaleFactor:2});
- await desktop.addInitScript(()=>{window.__TAURI_INTERNALS__={invoke:async()=>({halo:{enabled:true,size:"medium"},running:true,connected:false,trusted:false,autostart:false,code:'123456',codeRemaining:600,addresses:[{name:'演示网络',address:'192.0.2.10',virtual:false}],selected:'192.0.2.10',port:19827,error:''})};});
+ await desktop.addInitScript(version=>{window.__TAURI_INTERNALS__={invoke:async command=>command==='update_state'?{currentVersion:version,startupCheck:true,distribution:'installed',phase:'idle',downloaded:0,total:null,error:'',release:null}:({halo:{enabled:true,size:"medium"},running:true,connected:false,trusted:false,autostart:false,code:'123456',codeRemaining:600,addresses:[{name:'演示网络',address:'192.0.2.10',virtual:false}],selected:'192.0.2.10',port:19827,error:''})};},version);
  await desktop.goto(origin+'/desktop-ui/index.html');await desktop.locator('.qr-card img').waitFor();await desktop.evaluate(()=>document.fonts.ready);
- await desktop.screenshot({path:resolve(output,'desktop-pairing.png')});
+ await desktop.screenshot({path:resolve(output,'desktop-pairing.png'),fullPage:true});
  const mobile=await browser.newPage({viewport:{width:390,height:650},isMobile:true,hasTouch:true,deviceScaleFactor:2});
  await mobile.addInitScript(()=>{
   if(location.search.includes('pair')) localStorage.removeItem('pillow-token'); else localStorage.setItem('pillow-token','a'.repeat(64));

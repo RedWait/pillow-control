@@ -28,13 +28,13 @@
   <img src="docs/assets/desktop-pairing.png" width="680" alt="电脑等待配对界面，显示二维码、演示配对码和折叠连接设置">
 </p>
 
-> 截图展示 v0.2.1 界面。图片由实际页面渲染，连接状态使用预览数据；地址 `192.0.2.10`、配对码 `123456` 仅用于展示，不能用于连接。手机截图为浏览器视口，不代表手机真机验收。
+> 截图展示 v0.3.0 界面。图片由实际页面渲染，连接状态使用预览数据；地址 `192.0.2.10`、配对码 `123456` 仅用于展示，不能用于连接。手机截图为浏览器视口，不代表手机真机验收。
 
 <details>
 <summary>查看配对与更多操作面板</summary>
 <p>
   <img src="docs/assets/mobile-pairing.png" width="260" alt="手机配对面板，单一六位数字输入框">
-  <img src="docs/assets/mobile-more.png" width="260" alt="更多面板：显示桌面、Esc、回车及上下滚动">
+  <img src="docs/assets/mobile-more.png" width="260" alt="更多面板：Esc、显示桌面、Backspace、上下滚动及回车">
 </p>
 </details>
 
@@ -47,21 +47,33 @@
 - **连续切换窗口**：保持 Alt 逐个选择，确认后释放，也可一键显示桌面。
 - **配对一次，之后重连**：保留同一浏览器和网址，电脑程序重启后也能自动连接；支持登录后静默启动。
 
+### v0.3.0 新增
+
+- **远处也能找到鼠标**：默认开启定位光环，跟随系统光标，停止遥控移动约一秒后淡出；电脑端可调整大小，手机设置可开启局部放大镜。
+- **更完整的低频操作**：更多面板提供 Esc、显示桌面、删除（Backspace）、上下滚动和回车；修复双指滚动，保留单手备用滚动按钮。
+- **按需更新与关机**：电脑端可检查新版本；手机设置中可确认正常关机，不强制结束未保存的应用。
+
 <a id="download"></a>
 ## 下载
 
-**[前往 GitHub Releases 下载](https://github.com/RedWait/pillow-control/releases/latest)** · [v0.2.1 发布说明](https://github.com/RedWait/pillow-control/releases/latest)
+**[前往 GitHub Releases 下载](https://github.com/RedWait/pillow-control/releases/latest)** · [v0.3.0 发布说明](https://github.com/RedWait/pillow-control/releases/tag/v0.3.0)
 
 | 选择 | 适合谁 | WebView2 |
 | --- | --- | --- |
-| **[安装版 EXE（推荐）](https://github.com/RedWait/pillow-control/releases/download/v0.2.1/pillow-control-0.2.1-setup-x64.exe)** | 日常使用，按当前 Windows 用户安装 | 已包含离线安装程序，体积较大 |
-| [便携版 ZIP](https://github.com/RedWait/pillow-control/releases/download/v0.2.1/pillow-control-0.2.1-portable-x64.zip) | 解压即用，愿意自行管理程序目录 | 需要系统已有 WebView2 Runtime |
+| **[安装版 EXE（推荐）](https://github.com/RedWait/pillow-control/releases/download/v0.3.0/pillow-control-0.3.0-setup-x64.exe)** | 日常使用，按当前 Windows 用户安装 | 已包含离线安装程序，体积较大 |
+| [便携版 ZIP](https://github.com/RedWait/pillow-control/releases/download/v0.3.0/pillow-control-0.3.0-portable-x64.zip) | 解压即用，愿意自行管理程序目录 | 需要系统已有 WebView2 Runtime |
 
-可用 [SHA-256 校验文件](https://github.com/RedWait/pillow-control/releases/download/v0.2.1/pillow-control-0.2.1-SHA256SUMS.txt)核对下载。没有单独的“离线版”：安装版已内置 WebView2 离线安装程序。便携版的偏好仍保存于当前用户的应用数据目录；开启自启后请保持程序路径不变。
+可用 [SHA-256 校验文件](https://github.com/RedWait/pillow-control/releases/download/v0.3.0/pillow-control-0.3.0-SHA256SUMS.txt)核对下载。没有单独的“离线版”：安装版已内置 WebView2 离线安装程序。便携版的偏好仍保存于当前用户的应用数据目录；开启自启后请保持程序路径不变。
 
-面向 **Windows 10/11 x64**，目前实测 Windows 11；Windows 10、全新系统和缺失 WebView2 的安装分支仍待验收。发行包未签名，Windows 可能显示未知发布者。普通用户不需要 Node.js、Python、Rust 或编译工具。
+面向 **Windows 10/11 x64**，目前实测 Windows 11；Windows 10、全新系统和缺失 WebView2 的安装分支仍待验收。更新包已使用更新签名校验，但未做 Windows 代码签名，Windows 仍可能显示未知发布者或 SmartScreen 提示。普通用户不需要 Node.js、Python、Rust 或编译工具。
 
-下载软件需要互联网；安装版无需在线下载 WebView2。便携版缺少该运行时时需另行安装，可能需要联网。日常遥控只需局域网。
+下载软件需要互联网；安装版无需在线下载 WebView2。便携版缺少该运行时时需另行安装，可能需要联网。日常遥控只需局域网；检查和下载更新需要连接 GitHub，网络不可用不影响遥控。
+
+### 从旧版本升级
+
+**v0.2.1 及更早版本需要手动下载安装 v0.3.0**，无需先删除配对数据。v0.3.0 起，电脑端「软件更新」支持手动检查及默认开启、可关闭的启动检查；后续有稳定版时，安装版可下载签名更新包，由你确认后安装，期间会暂时中断遥控。便携版通过发布页面手动下载。
+
+正式版本之间的实际升级安装与升级后设置保留仍待验收，详见[更新说明与发布流程](docs/UPDATES.md)。
 
 <a id="quick-start"></a>
 ## 快速开始
@@ -112,11 +124,11 @@ npm run pack    # 生成安装版、便携 ZIP 和校验文件
 - [开发、架构、完整测试与打包命令](docs/DEVELOPMENT.md)
 - [Windows 验证记录](docs/VALIDATION.md) · [真机验收清单](docs/ACCEPTANCE.md)
 - [当前 UI 精修与验证范围](docs/UI_POLISH.md) · [手机界面验证](docs/MOBILE_UI.md)
-- [鼠标定位光环：使用与验证（本地开发版，未发布）](docs/POINTER_HALO.md)
-- [本地开发版：Backspace、滚动修复、鼠标放大镜与关机](docs/REMOTE_ENHANCEMENTS.md)（尚未发布）
+- [鼠标定位光环：使用与验证](docs/POINTER_HALO.md)
+- [Backspace、滚动修复、鼠标放大镜与关机](docs/REMOTE_ENHANCEMENTS.md)
 - [迁移与可恢复基线](docs/MIGRATION.md)
 
-浏览器模拟、自动化测试和构建成功都不等于实体手机、真实 Wi-Fi 或全新 Windows 的验收通过。
+上述功能记录保留开发阶段的验证过程；发布状态以 [v0.3.0 发布说明](docs/RELEASE-0.3.0.md)为准。浏览器模拟、自动化测试和构建成功都不等于实体手机、真实 Wi-Fi 或全新 Windows 的验收通过；实际关机、不同屏幕缩放及播放器覆盖效果仍需真机核对。
 
 ## 参与与许可证
 
@@ -127,10 +139,6 @@ npm run pack    # 生成安装版、便携 ZIP 和校验文件
 项目采用 [MIT 许可证](LICENSE)。依赖和分发素材的许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 如果枕控帮你少下了一次床，欢迎点个 ⭐，也欢迎分享给同样懒得起身的朋友。
-
-### 软件更新
-
-电脑端「软件更新」支持手动检查与可关闭的启动检查。安装版仅在签名验证通过、用户确认后安装；便携版打开发布页面手动下载。首个带更新功能的版本仍需手动安装。[配置、发布流程与验收边界](docs/UPDATES.md)。
 
 ## 友情链接
 
